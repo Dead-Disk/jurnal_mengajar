@@ -37,6 +37,11 @@ class ShiftManagementTest extends TestCase
     {
         parent::setUp();
 
+        // Reset cache mode jadwal ke 'global' agar tes sebelumnya yang mengubah
+        // mode tidak mengkontaminasi tes ini (cache bertahan dalam satu proses phpunit).
+        \Illuminate\Support\Facades\Cache::forget('schedule_mode');
+        \App\Models\AppSetting::setScheduleMode(\App\Models\AppSetting::SCHEDULE_GLOBAL);
+
         $this->admin = User::create([
             'nama' => 'Admin Test',
             'username' => 'adminshift',
@@ -552,8 +557,216 @@ class ShiftManagementTest extends TestCase
         $this->assertDatabaseHas('jam_pulang', ['shift_id' => $shift->id, 'kategori_hari' => 'Senin-Kamis', 'tingkat' => 'XI', 'max_jam_ke' => 4]);
     }
 
+    public function test_jam_pulang_ajax_upsert_saves_and_clears_one_setting(): void
+    {
+        $shift = $this->makeShift('Shift 1 (Pagi)');
+        $url = route('admin.jam-pulang.upsert');
+
+        $this->actingAs($this->admin)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post($url, [
+                'shift_id' => $shift->id,
+                'kategori_hari' => 'Senin-Kamis',
+                'tingkat' => 'X',
+                'max_jam_ke' => 7,
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('jam_pulang', [
+            'shift_id' => $shift->id,
+            'kategori_hari' => 'Senin-Kamis',
+            'tingkat' => 'X',
+            'max_jam_ke' => 7,
+        ]);
+        $this->assertSame(1, JamPulang::where('shift_id', $shift->id)
+            ->where('kategori_hari', 'Senin-Kamis')
+            ->where('tingkat', 'X')
+            ->count());
+
+        $this->post($url, [
+            'shift_id' => $shift->id,
+            'kategori_hari' => 'Senin-Kamis',
+            'tingkat' => 'X',
+            'max_jam_ke' => null,
+        ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('jam_pulang', [
+            'shift_id' => $shift->id,
+            'kategori_hari' => 'Senin-Kamis',
+            'tingkat' => 'X',
+            'max_jam_ke' => null,
+        ]);
+        $this->assertSame(1, JamPulang::where('shift_id', $shift->id)
+            ->where('kategori_hari', 'Senin-Kamis')
+            ->where('tingkat', 'X')
+            ->count());
+    }
+
+    public function test_jam_pulang_saved_value_is_selected_when_master_page_loads(): void
+    {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_GLOBAL);
+        $this->actingAs($this->admin);
+        $this->makeSlot(null, '07:00', '07:45');
+        JamPulang::create([
+            'shift_id' => 0,
+            'kategori_hari' => 'Senin-Kamis',
+            'tingkat' => 'X',
+            'max_jam_ke' => 1,
+        ]);
+
+        $this->get(route('admin.jam-pelajaran.index'))
+            ->assertOk()
+            ->assertSee('data-shift-id="0"', false)
+            ->assertSee('data-kategori-hari="Senin-Kamis"', false)
+            ->assertSee('value="1" selected', false);
+    }
+
+    public function test_jam_pulang_can_save_pkl_mode_and_render_the_selected_option(): void
+    {
+        $shift = $this->makeShift('Shift PKL');
+        $url = route('admin.jam-pulang.upsert');
+
+        $this->actingAs($this->admin)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post($url, [
+                'shift_id' => $shift->id,
+                'kategori_hari' => 'Senin-Kamis',
+                'tingkat' => 'XII',
+                'max_jam_ke' => 'pkl',
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertDatabaseHas('jam_pulang', [
+            'shift_id' => $shift->id,
+            'kategori_hari' => 'Senin-Kamis',
+            'tingkat' => 'XII',
+            'max_jam_ke' => null,
+            'mode_pulang' => 'pkl',
+        ]);
+
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+        $this->get(route('admin.jam-pelajaran.index', ['shift' => $shift->id]))
+            ->assertOk()
+            ->assertSee('value="pkl" selected', false)
+            ->assertSee('PKL / DU-DI', false);
+    }
+
+    public function test_pkl_dropdown_locks_grade_twelve_plot_matrix(): void
+    {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_GLOBAL);
+        $this->makeSlot(null, '07:00', '07:45', 1);
+        $this->makeSlot(null, '07:45', '08:30', 2);
+        $kelas = Kelas::create([
+            'nama_kelas' => 'XII RPL 1',
+            'tingkat' => 'XII',
+            'id_jurusan' => $this->jurusan->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post(route('admin.jam-pulang.upsert'), [
+                'shift_id' => 0,
+                'kategori_hari' => 'Senin-Kamis',
+                'tingkat' => 'XII',
+                'max_jam_ke' => 'pkl',
+            ])
+            ->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->withHeaders(['Accept' => 'text/html'])
+            ->get(route('admin.jadwal.index', ['id_kelas' => $kelas->id, 'hari' => 'Senin']))
+            ->assertOk()
+            ->assertSee('PKL / DU-DI')
+            ->assertSee('title="Kelas ini sedang dalam mode PKL / DU-DI."', false)
+            ->assertSee('Slot dikunci untuk kegiatan PKL Kelas XII.');
+
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika']);
+        $guru = User::create([
+            'nama' => 'Guru PKL Test',
+            'username' => 'gurupkltest',
+            'password' => bcrypt('password'),
+            'role' => User::ROLE_GURU,
+            'is_active' => true,
+        ]);
+
+        $this->postJson(route('admin.jadwal.store'), [
+            'id_kelas' => $kelas->id,
+            'hari' => 'Senin',
+            'jam_ke_mulai' => 1,
+            'jam_ke_selesai' => 1,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
+        ])->assertStatus(422)
+            ->assertJsonFragment(['message' => 'Gagal! Rentang jam yang dipilih menabrak slot PKL / DU-DI pada Jam Ke-1.']);
+
+        $this->assertDatabaseMissing('jadwal_pelajaran', [
+            'id_kelas' => $kelas->id,
+            'hari' => 'Senin',
+        ]);
+    }
+
+    public function test_pkl_schedule_cannot_create_regular_teacher_journal(): void
+    {
+        $kelas = Kelas::create([
+            'nama_kelas' => 'XII RPL PKL',
+            'tingkat' => 'XII',
+            'id_jurusan' => $this->jurusan->id,
+        ]);
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Praktik Industri']);
+        $guru = User::create([
+            'nama' => 'Guru PKL Portal',
+            'username' => 'gurupklportal',
+            'password' => bcrypt('password'),
+            'role' => User::ROLE_GURU,
+            'is_active' => true,
+        ]);
+        $jam = JamPelajaran::create([
+            'hari' => 'Senin',
+            'kategori_hari' => 'Senin-Kamis',
+            'jam_ke' => 1,
+            'jam_mulai' => '07:00:00',
+            'jam_selesai' => '07:45:00',
+            'jenis' => 'kbm',
+        ]);
+        $jadwalId = \Illuminate\Support\Facades\DB::table('jadwal_pelajaran')->insertGetId([
+            'group_id' => (string) Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
+            'id_tahun_ajaran' => $this->tahun->id,
+            'is_testing_data' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        JamPulang::create([
+            'shift_id' => 0,
+            'kategori_hari' => 'Senin-Kamis',
+            'tingkat' => 'XII',
+            'max_jam_ke' => null,
+            'mode_pulang' => 'pkl',
+        ]);
+
+        $this->actingAs($guru)
+            ->post(route('guru.jurnal.store'), [
+                'id_jadwal' => $jadwalId,
+                'materi' => 'Praktik PKL',
+            ])
+            ->assertRedirect(route('guru.jurnal'))
+            ->assertSessionHas('error', 'Slot ini dikunci untuk PKL / DU-DI dan tidak memerlukan jurnal KBM reguler.');
+
+        $this->assertDatabaseMissing('jurnal', ['id_jadwal' => $jadwalId]);
+    }
+
     public function test_plotting_visibility_and_conflicts_are_shift_scoped(): void
     {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+
         $s1 = $this->makeShift('Shift 1 (Pagi)', '07:00', '14:00');
         $s2 = $this->makeShift('Shift 2 (Siang)', '14:00', '21:00');
 
@@ -645,6 +858,8 @@ class ShiftManagementTest extends TestCase
 
     public function test_global_class_sees_only_global_slots_and_shift_class_sees_only_own_shift_slots(): void
     {
+        AppSetting::setScheduleMode(AppSetting::SCHEDULE_SHIFT);
+
         $shift = $this->makeShift('Shift 1 (Pagi)');
         $globalSlot = $this->makeSlot(null, '07:00', '07:45');
         $shiftSlot = $this->makeSlot($shift->id, '13:00', '13:45');

@@ -185,6 +185,7 @@ class JadwalConflictValidationMessagesTest extends TestCase
             'jam_ke' => 1,
             'nama_agenda' => 'Upacara Bendera',
             'is_active' => true,
+            'tahun_ajaran_id' => $this->tahun->id,
         ]);
 
         // Attempt plotting on Jam 1 which is locked by Agenda Rutin

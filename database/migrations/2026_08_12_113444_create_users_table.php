@@ -26,7 +26,6 @@ return new class extends Migration
                 'guru_piket',
                 'piket_satpam',
                 'guru',
-                'admin',
             ])->default('guru_mapel');
 
             $table->timestamps();

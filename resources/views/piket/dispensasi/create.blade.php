@@ -91,6 +91,41 @@
                 {{-- PILIH SISWA (FULL-WIDTH: Kelas | Cari NISN/Nama | Siswa)     --}}
                 {{-- ============================================================ --}}
                 <div class="col-12">
+                    <section id="terlambatSatpamCard" class="alert alert-warning border-warning-subtle rounded-3 mb-3 d-none" aria-labelledby="terlambatSatpamHeading">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-clock-history fs-5 mt-1"></i>
+                            <div class="flex-grow-1">
+                                <h6 id="terlambatSatpamHeading" class="fw-bold mb-2">Siswa Terlambat Dicatat Satpam Hari Ini</h6>
+                                <div id="terlambatSatpamList" class="d-flex flex-column gap-2">
+                                    @forelse($siswaTerlambatSatpam as $catatan)
+                                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 border-top border-warning-subtle pt-2">
+                                            <div>
+                                                <span class="fw-semibold">{{ $catatan->siswa?->nama ?? 'Siswa tidak ditemukan' }}</span>
+                                                <span class="text-muted small">
+                                                    — {{ $catatan->siswa?->kelas?->nama_lengkap ?? $catatan->siswa?->kelas?->nama_kelas ?? 'Tanpa kelas' }}
+                                                    · {{ $catatan->jam_masuk?->format('H:i') ?? '--:--' }}
+                                                </span>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-warning text-dark fw-semibold btn-pilih-terlambat"
+                                                    data-catatan-id="{{ $catatan->id }}"
+                                                    data-id-siswa="{{ $catatan->id_siswa }}"
+                                                    data-id-kelas="{{ $catatan->siswa?->id_kelas }}"
+                                                    data-nama-siswa="{{ $catatan->siswa?->nama }}"
+                                                    data-nis="{{ $catatan->siswa?->nis }}"
+                                                    data-nisn="{{ $catatan->siswa?->nisn }}"
+                                                    data-jam-masuk="{{ $catatan->jam_masuk?->format('H:i') }}"
+                                                    data-keterangan="{{ $catatan->keterangan }}">
+                                                <i class="bi bi-person-check me-1"></i>Pilih / Proses Dispensasi
+                                            </button>
+                                        </div>
+                                    @empty
+                                        <p class="text-muted small mb-0">Tidak ada catatan terlambat yang menunggu diproses.</p>
+                                    @endforelse
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
                     {{-- Multi-baris siswa: satu baris = satu siswa (rombongan) --}}
                     <label class="form-label fw-bold text-secondary text-uppercase small">Pilih Siswa <span class="text-danger">*</span></label>
                     <p class="text-muted small mb-2">
@@ -876,6 +911,8 @@
 
             keluarSections.forEach(function (el) { if (el) el.classList.toggle('d-none', isMasuk); });
             if (areaMasuk) areaMasuk.classList.toggle('d-none', !isMasuk);
+            const terlambatSatpamCard = document.getElementById('terlambatSatpamCard');
+            if (terlambatSatpamCard) terlambatSatpamCard.classList.toggle('d-none', !isMasuk);
 
             if (tipeDispenHint) {
                 tipeDispenHint.innerHTML = isMasuk
@@ -1025,8 +1062,10 @@
             if (modeMasuk && terlambatData.length > 0) {
                 const gTerlambat = document.createElement('optgroup');
                 gTerlambat.label = 'Siswa Terlambat Hari Ini (Satpam)';
-                terlambatData.forEach(function (d) { gTerlambat.appendChild(terlambatOption(d)); });
-                siswa.appendChild(gTerlambat);
+                terlambatData
+                    .filter(function (d) { return String(d.kelas_id) === String(kelasId); })
+                    .forEach(function (d) { gTerlambat.appendChild(terlambatOption(d)); });
+                if (gTerlambat.children.length > 0) siswa.appendChild(gTerlambat);
             }
 
             if (kelasId && siswaList && siswaList.length > 0) {
@@ -1052,6 +1091,14 @@
         // Auto-fill form saat user memilih siswa dari group terlambat.
         function autoFillFromTerlambat(row, opt) {
             if (!opt || !opt.dataset.catatanId) return;
+            const catatan = terlambatData.find(function (item) {
+                return String(item.id) === String(opt.dataset.catatanId);
+            });
+            if (catatan) {
+                applyTerlambatDetails(row, catatan);
+                return;
+            }
+
             const hid = row.querySelector('.row-catatan');
             if (hid) hid.value = String(opt.dataset.catatanId);
 
@@ -1075,6 +1122,25 @@
             if (kat) kat.value = 'Terlambat Sekolah';
             const detail = document.getElementById('alasan_detail');
             if (detail) detail.value = opt.dataset.keterangan || '';
+        }
+
+        function applyTerlambatDetails(row, catatan) {
+            const hid = row.querySelector('.row-catatan');
+            if (hid) hid.value = String(catatan.id);
+
+            const jp = document.getElementById('jam_masuk_jp');
+            if (jp) {
+                if (catatan.saran_jp) {
+                    jp.value = String(catatan.saran_jp);
+                } else if (!jp.value) {
+                    const jk = saranJamMasuk();
+                    if (jk !== null) jp.value = String(jk);
+                }
+            }
+            const kat = document.getElementById('alasan_kategori');
+            if (kat) kat.value = 'Terlambat Sekolah';
+            const detail = document.getElementById('alasan_detail');
+            if (detail) detail.value = catatan.keterangan || '';
         }
 
         // Snapshot pilihan baris agar dapat dikembalikan setelah re-render.
@@ -1168,7 +1234,10 @@
                 siswa.disabled = false;
                 if (selectSiswaId) {
                     const opt = siswa.querySelector('option[value="' + String(selectSiswaId) + '"]');
-                    if (opt) siswa.value = String(selectSiswaId);
+                    if (opt) {
+                        siswa.value = String(selectSiswaId);
+                        siswa.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 }
                 updateSelectedStudentsState();
             })
@@ -1246,14 +1315,14 @@
             });
         }
 
-        function createSiswaRow() {
+        function createSiswaRow(kelasIdOverride) {
             const existingRows = document.querySelectorAll('.siswa-row');
-            let selectedKelasId = '';
+            let selectedKelasId = kelasIdOverride ? String(kelasIdOverride) : '';
             if (existingRows.length > 0) {
                 // Ambil kelas_id dari baris terakhir/sebelumnya yang sudah ada nilainya, atau baris pertama
                 for (let i = existingRows.length - 1; i >= 0; i--) {
                     const kSelect = existingRows[i].querySelector('.row-kelas');
-                    if (kSelect && kSelect.value) {
+                    if (!selectedKelasId && kSelect && kSelect.value) {
                         selectedKelasId = kSelect.value;
                         break;
                     }
@@ -1269,7 +1338,7 @@
                 const kSelectNew = row.querySelector('.row-kelas');
                 if (kSelectNew) {
                     kSelectNew.value = selectedKelasId;
-                    kSelectNew.dispatchEvent(new Event('change'));
+                    if (!kelasIdOverride) kSelectNew.dispatchEvent(new Event('change'));
                 }
             }
 
@@ -1291,6 +1360,125 @@
             createSiswaRow();
         }
 
+        function renderTerlambatSatpamList(data, loadError) {
+            const list = document.getElementById('terlambatSatpamList');
+            if (!list) return;
+
+            list.replaceChildren();
+            if (data.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = loadError ? 'text-danger small mb-0' : 'text-muted small mb-0';
+                empty.textContent = loadError
+                    ? 'Gagal memuat catatan terlambat. Silakan muat ulang halaman.'
+                    : 'Tidak ada catatan terlambat yang menunggu diproses.';
+                list.appendChild(empty);
+                return;
+            }
+
+            data.forEach(function (catatan) {
+                const item = document.createElement('div');
+                item.className = 'd-flex justify-content-between align-items-center flex-wrap gap-2 border-top border-warning-subtle pt-2';
+
+                const info = document.createElement('div');
+                const nama = document.createElement('span');
+                nama.className = 'fw-semibold';
+                nama.textContent = catatan.nama || 'Siswa tidak ditemukan';
+                const detail = document.createElement('span');
+                detail.className = 'text-muted small';
+                detail.textContent = ' — ' + (catatan.kelas || 'Tanpa kelas') + ' · ' + (catatan.jam_masuk || '--:--');
+                info.append(nama, detail);
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'btn btn-sm btn-warning text-dark fw-semibold btn-pilih-terlambat';
+                button.dataset.catatanId = String(catatan.id);
+                button.dataset.idSiswa = String(catatan.id_siswa);
+                button.dataset.idKelas = String(catatan.kelas_id);
+                button.dataset.namaSiswa = String(catatan.nama || '');
+                button.dataset.nis = String(catatan.nis || '');
+                button.dataset.nisn = String(catatan.nisn || '');
+                button.dataset.jamMasuk = String(catatan.jam_masuk || '');
+                button.dataset.keterangan = String(catatan.keterangan || '');
+                button.dataset.saranJp = String(catatan.saran_jp || '');
+                button.innerHTML = '<i class="bi bi-person-check me-1"></i>Pilih / Proses Dispensasi';
+
+                item.append(info, button);
+                list.appendChild(item);
+            });
+        }
+
+        const terlambatSatpamList = document.getElementById('terlambatSatpamList');
+        if (terlambatSatpamList) {
+            terlambatSatpamList.addEventListener('click', function (event) {
+                const target = event.target instanceof Element ? event.target : null;
+                const button = target ? target.closest('.btn-pilih-terlambat') : null;
+                if (!button) return;
+
+                const catatan = terlambatData.find(function (item) {
+                    return String(item.id) === String(button.dataset.catatanId);
+                });
+                const kelasId = button.dataset.idKelas;
+                const siswaId = button.dataset.idSiswa;
+                if (!kelasId || !siswaId) return;
+
+                tipeDispenInput.value = 'masuk';
+                setTipeDispen('masuk');
+                applyTerlambatGroups();
+
+                let row = Array.from(document.querySelectorAll('.siswa-row')).find(function (item) {
+                    const siswa = item.querySelector('.row-siswa');
+                    return siswa && String(siswa.value) === String(siswaId);
+                });
+
+                if (!row) {
+                    row = Array.from(document.querySelectorAll('.siswa-row')).find(function (item) {
+                        const siswa = item.querySelector('.row-siswa');
+                        return siswa && !siswa.value;
+                    }) || createSiswaRow(kelasId);
+                }
+
+                const kelas = row.querySelector('.row-kelas');
+                const siswa = row.querySelector('.row-siswa');
+                if (!kelas || !siswa) return;
+
+                kelas.value = String(kelasId);
+                row._siswaData = null;
+                renderRowOptions(row, String(kelasId), null);
+
+                let option = siswa.querySelector('option[value="' + String(siswaId) + '"]');
+                if (!option) {
+                    const optionData = catatan || {
+                        id: button.dataset.catatanId,
+                        id_siswa: siswaId,
+                        kelas_id: kelasId,
+                        nama: button.dataset.namaSiswa || '',
+                        nis: button.dataset.nis || '',
+                        nisn: button.dataset.nisn || '',
+                        jam_masuk: button.dataset.jamMasuk || '',
+                        keterangan: button.dataset.keterangan || '',
+                        saran_jp: button.dataset.saranJp || '',
+                    };
+                    option = terlambatOption(optionData);
+                    siswa.appendChild(option);
+                } else if (!option.dataset.catatanId) {
+                    option.dataset.catatanId = String(button.dataset.catatanId || '');
+                    option.dataset.jamMasuk = String(button.dataset.jamMasuk || '');
+                    option.dataset.keterangan = String(button.dataset.keterangan || '');
+                    option.dataset.saranJp = String(button.dataset.saranJp || '');
+                }
+
+                siswa.disabled = false;
+                siswa.value = String(siswaId);
+                siswa.dispatchEvent(new Event('change', { bubbles: true }));
+                setSiswaError(false);
+                updateSelectedStudentsState();
+
+                const areaMasuk = document.getElementById('areaMasuk');
+                if (areaMasuk) areaMasuk.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        }
+
         // =====================================================================
         // SISWA TERLAMBAT (catatan Satpam): refresh data saat tanggal berubah
         // =====================================================================
@@ -1301,13 +1489,22 @@
             return fetch(TERLAMBAT_URL + '?tanggal=' + encodeURIComponent(tgl || ''), {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(function (res) { return res.json(); })
+            .then(function (res) {
+                if (!res.ok) throw new Error('Gagal memuat catatan terlambat (HTTP ' + res.status + ')');
+                return res.json();
+            })
             .then(function (json) {
-                terlambatData = (json.error || !Array.isArray(json.data)) ? [] : json.data;
+                if (json.error || !Array.isArray(json.data)) {
+                    throw new Error('Respons daftar catatan terlambat tidak valid');
+                }
+                terlambatData = json.data;
+                renderTerlambatSatpamList(terlambatData);
                 applyTerlambatGroups();
             })
-            .catch(function () {
+            .catch(function (error) {
+                console.error(error);
                 terlambatData = [];
+                renderTerlambatSatpamList(terlambatData, true);
                 applyTerlambatGroups();
             });
         }

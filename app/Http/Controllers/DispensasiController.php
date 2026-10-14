@@ -9,6 +9,7 @@ use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
 use App\Models\Kelas;
 use App\Models\PengaturanJadwal;
+use App\Models\PenerimaTerlambat;
 use App\Models\Scopes\TestingDataScope;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
@@ -206,8 +207,12 @@ class DispensasiController extends Controller
             ->whereDate('tanggal', now()->toDateString())
             ->whereNull('dispensasi_id')
             ->where('is_approved_piket', false)
+            ->whereHas('penerima', fn ($query) => $query
+                ->where('user_id', Auth::id())
+                ->where('peran', PenerimaTerlambat::PERAN_GURU_PIKET))
             ->orderBy('jam_masuk')
             ->get();
+        $siswaTerlambatSatpam = $terlambatSaatIni;
 
         $terlambatJson = $terlambatSaatIni->map(fn (CatatanTerlambat $c) => [
             'id' => (int) $c->id,
@@ -223,7 +228,7 @@ class DispensasiController extends Controller
 
         return view('piket.dispensasi.create', compact(
             'dataSiswa', 'jadwalOptions', 'jamPelajaran', 'jamPelajaranPerHari',
-            'kelasList', 'selectedKelas', 'oldSiswaRows', 'terlambatJson',
+            'kelasList', 'selectedKelas', 'oldSiswaRows', 'terlambatJson', 'siswaTerlambatSatpam',
             'jamMasukDefault', 'jamPelajaranList', 'currentJp'
         ));
     }
@@ -319,6 +324,9 @@ class DispensasiController extends Controller
             ->whereDate('tanggal', $tanggal)
             ->whereNull('dispensasi_id')
             ->where('is_approved_piket', false)
+            ->whereHas('penerima', fn ($query) => $query
+                ->where('user_id', Auth::id())
+                ->where('peran', PenerimaTerlambat::PERAN_GURU_PIKET))
             ->orderBy('jam_masuk')
             ->get()
             ->map(fn (CatatanTerlambat $c) => [

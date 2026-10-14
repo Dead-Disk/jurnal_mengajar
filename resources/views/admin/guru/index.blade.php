@@ -176,6 +176,12 @@
                     </ul>
                 </div>
 
+                <!-- Tombol Import Guru -->
+                <button type="button" class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto d-flex align-items-center justify-content-center gap-1.5" data-bs-toggle="modal" data-bs-target="#modalImportGuru">
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    <span>Import Data</span>
+                </button>
+
                 @if(in_array(auth()->user()->sub_role, ['super_admin', 'petugas_tu']))
                     {{-- Tombol Tambah Guru (Hanya untuk sub_role: super_admin dan petugas_tu) --}}
                     <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center"><i class="bi bi-plus-lg me-1"></i> Tambah Guru</a>
@@ -262,7 +268,113 @@
             </div>
         </div>
     </div>
+    {{-- ====================================================== --}}
+    {{-- ZONA BERBAHAYA: RESET / HAPUS SEMUA DATA GURU           --}}
+    {{-- Proteksi ketat: HANYA Super Admin                       --}}
+    {{-- ====================================================== --}}
+    @if(auth()->user()->sub_role === 'super_admin')
+    <div class="card border-0 rounded-4 shadow-sm mb-4" style="border: 1px solid #fee2e2 !important; background: #fff7f7;">
+        <div class="card-body p-4 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-trash3-fill text-white fs-5"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold text-danger mb-1">Zona Berbahaya — Reset / Hapus Semua Data Guru</h5>
+                    <p class="text-muted mb-0 small" style="color: #991b1b !important;">
+                        Hapus massal & permanen seluruh akun guru beserta jadwal pelajaran, jadwal piket, jurnal mengajar, izin guru, dan status kehadiran.
+                    </p>
+                </div>
+            </div>
+            <button type="button"
+                    class="btn btn-danger rounded-3 px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 flex-shrink-0"
+                    style="font-size:0.875rem;"
+                    data-reset-route="{{ route('import.reset-guru') }}"
+                    data-reset-label="seluruh data Guru"
+                    data-reset-phrase="HAPUS DATA GURU"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalResetData">
+                <i class="bi bi-trash3"></i>
+                <span>Reset / Hapus Semua Data Guru</span>
+            </button>
+        </div>
+    </div>
+    @endif
 </div>
+
+{{-- ==================== MODAL IMPORT GURU ==================== --}}
+<div class="modal fade" id="modalImportGuru" tabindex="-1" aria-labelledby="modalImportGuruLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 38px; height: 38px;">
+                        <i class="bi bi-file-earmark-arrow-up-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="modalImportGuruLabel">Import Master Guru</h5>
+                        <p class="text-muted small mb-0">Format: NIP • NAMA GURU • STATUS (.xlsx / .xls / .csv)</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('import.guru') }}" method="POST" enctype="multipart/form-data" id="formImportGuru">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="row g-4">
+                        {{-- Form Upload --}}
+                        <div class="col-lg-7">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-dark">File Guru <span class="text-danger">*</span></label>
+                                <input type="file" name="file_guru" class="form-control rounded-3" accept=".xlsx,.xls,.csv,.txt" required>
+                                <div class="form-text text-muted small">Format didukung: .xlsx, .xls, .csv (Maks. 10 MB)</div>
+                            </div>
+
+                            <div class="alert alert-info border-0 rounded-3 small mb-0">
+                                <i class="bi bi-info-circle-fill me-1"></i>
+                                Akun guru baru dibuatkan otomatis dengan Username = <strong>NIP</strong> dan Password default = <strong>USERNAME123</strong>. NIP yang sudah ada akan diperbarui.
+                            </div>
+                        </div>
+
+                        {{-- Panduan Format --}}
+                        <div class="col-lg-5 border-start-lg">
+                            <div class="bg-light p-3 rounded-3 border mb-3">
+                                <div class="small fw-bold text-dark mb-2">
+                                    <i class="bi bi-file-earmark-arrow-down text-primary me-1"></i> Template Master Guru
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="{{ route('guru.export', ['format' => 'xlsx']) }}" class="btn btn-sm btn-outline-success rounded-2 fw-semibold flex-grow-1">
+                                        <i class="bi bi-file-earmark-excel me-1"></i> .xlsx
+                                    </a>
+                                    <a href="{{ route('guru.export', ['format' => 'csv']) }}" class="btn btn-sm btn-outline-info rounded-2 fw-semibold flex-grow-1">
+                                        <i class="bi bi-filetype-csv me-1"></i> .csv
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div class="small text-muted" style="font-size:0.8rem; line-height: 1.45;">
+                                <div class="fw-bold text-dark mb-1">Panduan Kolom:</div>
+                                <ul class="ps-3 mb-0">
+                                    <li>Kolom: <strong>NO, NIP, NAMA GURU, STATUS</strong>.</li>
+                                    <li>Opsional: <strong>PERAN, WALI KELAS, NO HP</strong>.</li>
+                                    <li>Wali Kelas: isi <code>PERAN = "Wali Kelas"</code> & nama kelas di kolom <code>WALI KELAS</code>.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0 d-flex justify-content-between">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm">
+                        <i class="bi bi-upload me-1"></i> Unggah & Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@include('admin.common._modal_reset')
 
 @push('scripts')
 <script>
@@ -378,6 +490,43 @@
                 refresh();
             }
         });
+    })();
+
+    // ── Script Modal Reset Data ──
+    (function () {
+        const modalEl  = document.getElementById('modalResetData');
+        const form     = document.getElementById('formResetData');
+        const input    = document.getElementById('resetConfirmInput');
+        const btnReset = document.getElementById('btnConfirmReset');
+        const lblText  = document.getElementById('resetLabelText');
+        const phText   = document.getElementById('resetPhraseText');
+        const titleText = document.getElementById('resetModalTitleText');
+
+        if (!modalEl || !form || !input || !btnReset) return;
+
+        let expectedPhrase = '';
+
+        function lockReset() {
+            input.value = '';
+            btnReset.disabled = true;
+        }
+
+        document.querySelectorAll('[data-reset-route]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                expectedPhrase = (btn.dataset.resetPhrase || '').toUpperCase();
+                form.setAttribute('action', btn.dataset.resetRoute);
+                lblText.textContent = btn.dataset.resetLabel || 'seluruh data';
+                phText.textContent  = expectedPhrase;
+                if (titleText) titleText.textContent = btn.dataset.resetTitle || 'Konfirmasi Hapus Masal Data';
+                lockReset();
+            });
+        });
+
+        input.addEventListener('input', function () {
+            btnReset.disabled = this.value.trim().toUpperCase() !== expectedPhrase;
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', lockReset);
     })();
 </script>
 @endpush

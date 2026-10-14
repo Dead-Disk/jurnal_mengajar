@@ -135,4 +135,9 @@ class TahunAjaran extends Model
     {
         return $this->hasMany(JadwalPelajaran::class, 'id_tahun_ajaran', 'id');
     }
+
+    public function agendaRutin(): HasMany
+    {
+        return $this->hasMany(AgendaRutin::class, 'tahun_ajaran_id', 'id');
+    }
 }

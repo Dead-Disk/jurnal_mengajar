@@ -4,6 +4,7 @@ namespace App\Http\Controllers\WakaPiket;
 
 use App\Http\Controllers\Controller;
 use App\Models\IzinGuru;
+use App\Models\EventKhusus;
 use App\Models\JadwalPelajaran;
 use App\Models\JadwalPiket;
 use App\Models\JamPelajaran;
@@ -199,16 +200,23 @@ class WakaPiketController extends Controller
             ->where('hari', $hariAktif)
             ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
             ->get();
+        $kelasNonAktifIds = EventKhusus::nonAktifClassIdsOnDate(
+            $todayStr,
+            $jadwalHariIni->pluck('id_kelas')
+        );
+        $jadwalKBMAktifHariIni = $jadwalHariIni
+            ->reject(fn ($jadwal) => $kelasNonAktifIds->contains($jadwal->id_kelas))
+            ->values();
 
         $jurnalHariIni = Jurnal::with(['guru', 'guruPengganti'])
             ->whereDate('tanggal', $todayStr)
-            ->whereIn('id_jadwal', $jadwalHariIni->pluck('id'))
+            ->whereIn('id_jadwal', $jadwalKBMAktifHariIni->pluck('id'))
             ->get()
             ->keyBy('id_jadwal');
 
         $daftarIzinHariIni = IzinGuru::with('user')->whereDate('tanggal', $todayStr)->get();
 
-        $kelasKosongList = $jadwalHariIni
+        $kelasKosongList = $jadwalKBMAktifHariIni
             ->filter(function ($jadwal) use ($jurnalHariIni) {
                 $jurnal = $jurnalHariIni->get($jadwal->id);
 

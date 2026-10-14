@@ -111,16 +111,26 @@ class IzinGuruApprovalFlowTest extends TestCase
             ->assertDontSee('id="formApproval"');
 
         // Kepsek approve final via token Khusus Kepala Sekolah
+        $this->get(route('izin.approval.show', $izin->token_kepsek))
+            ->assertOk()
+            ->assertSee('Persetujuan Kepala Sekolah')
+            ->assertSee('> Setujui</button>', false)
+            ->assertDontSee('id="canvasTtd"', false)
+            ->assertDontSee('Setujui &amp; Tanda Tangan');
+
         $this->post(route('izin.approval.submit', $izin->token_kepsek), [
             'keputusan' => 'setujui',
-            'ttd_kepsek' => 'data:image/png;base64,CCCC',
         ])->assertRedirect(route('izin.approval.show', $izin->token_kepsek));
 
         $izin->refresh();
         $this->assertEquals(IzinGuru::STATUS_DISETUJUI, $izin->status);
-        $this->assertNotNull($izin->ttd_kepsek);
+        $this->assertNull($izin->ttd_kepsek);
+        $this->assertNotNull($izin->approved_by_kepsek);
         $this->assertNotNull($izin->approved_at);
         $this->assertTrue($izin->isApproved());
+        $this->get(route('izin.approval.show', $izin->token_kepsek))
+            ->assertOk()
+            ->assertSee('disetujui secara digital oleh Kepala Sekolah');
     }
 
     public function test_waka_token_page_never_shows_kepsek_form(): void
@@ -191,7 +201,7 @@ class IzinGuruApprovalFlowTest extends TestCase
 
         $this->get(route('izin.approval.show', $izin->token_kepsek))
             ->assertOk()
-            ->assertSee('Tanda Tangan & Persetujuan Kepala Sekolah', false)
+            ->assertSee('Persetujuan Kepala Sekolah', false)
             ->assertDontSee('<h6 class="fw-bold mb-1"><i class="bi bi-signature me-1"></i>Tanda Tangan Waka SDM</h6>', false);
     }
 
@@ -271,7 +281,7 @@ class IzinGuruApprovalFlowTest extends TestCase
         $this->assertSame('Bukti kurang', $izin->catatan_penolakan);
     }
 
-    public function test_public_approval_requires_kepsek_signature(): void
+    public function test_public_kepsek_approval_succeeds_without_signature(): void
     {
         PengaturanJadwal::getSetting()->update(['izin_approval_level' => 3]);
 
@@ -289,10 +299,13 @@ class IzinGuruApprovalFlowTest extends TestCase
 
         $this->post(route('izin.approval.submit', $izin->token_kepsek), [
             'keputusan' => 'setujui', // no ttd_kepsek
-        ])->assertSessionHas('error');
+        ])->assertRedirect(route('izin.approval.show', $izin->token_kepsek));
 
         $izin->refresh();
-        $this->assertEquals(IzinGuru::STATUS_PENDING_KEPSEK, $izin->status);
+        $this->assertEquals(IzinGuru::STATUS_DISETUJUI, $izin->status);
+        $this->assertNull($izin->ttd_kepsek);
+        $this->assertNotNull($izin->approved_by_kepsek);
+        $this->assertNotNull($izin->approved_at);
     }
 
     public function test_waka_approval_requires_waka_signature_and_does_not_advance(): void

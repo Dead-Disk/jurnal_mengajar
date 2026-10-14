@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Guru\Concerns\ResolvesTargetGuru;
 use App\Models\AbsensiJurnal;
 use App\Models\DispensasiSiswa;
+use App\Models\EventKhusus;
 use App\Models\JadwalPelajaran;
 use App\Models\JamPelajaran;
 use App\Models\JamPulang;
@@ -62,6 +63,30 @@ class JurnalController extends Controller
         return "{$mulai} - {$selesai}";
     }
 
+    protected function eventDaringAktif(int $idKelas, string $tanggal, ?Collection $events = null): bool
+    {
+        return $this->eventKhususAktif($idKelas, $tanggal, 'daring', $events);
+    }
+
+    protected function eventNonAktifAktif(int $idKelas, string $tanggal, ?Collection $events = null): bool
+    {
+        return $this->eventKhususAktif($idKelas, $tanggal, 'non_aktif', $events);
+    }
+
+    protected function eventKhususAktif(int $idKelas, string $tanggal, string $tipeDampak, ?Collection $events = null): bool
+    {
+        $events ??= EventKhusus::query()
+            ->where('tipe_dampak', $tipeDampak)
+            ->whereDate('tanggal_mulai', '<=', $tanggal)
+            ->whereDate('tanggal_selesai', '>=', $tanggal)
+            ->get(['tipe_dampak', 'scope', 'target_kelas']);
+
+        return $events->contains(fn (EventKhusus $event) => $event->tipe_dampak === $tipeDampak
+            && ($event->scope === 'semua_kelas'
+                || ($event->scope === 'kelas_tertentu'
+                    && in_array((string) $idKelas, array_map('strval', $event->target_kelas ?? []), true))));
+    }
+
     /**
      * Helper: Sanitisasi string untuk nama file (hapus karakter aneh, ubah spasi ke dash)
      */
@@ -79,7 +104,7 @@ class JurnalController extends Controller
     /**
      * Helper: Simpan file dari Base64 DataURL (Kamera Live) atau File Upload biasa dengan format nama terstruktur
      */
-    protected function saveBase64OrFile(Request $request, string $base64Key, string $fileKey, string $folder, ?string $customPrefix = null): ?string
+    protected function saveBase64OrFile(Request $request, string $base64Key, string $fileKey, string $folder, ?string $customPrefix = null, bool $allowFileUpload = true): ?string
     {
         $base64Data = $request->input($base64Key);
         $hash = substr(md5(uniqid((string) time(), true)), 0, 6);
@@ -97,7 +122,7 @@ class JurnalController extends Controller
             }
         }
 
-        if ($request->hasFile($fileKey)) {
+        if ($allowFileUpload && $request->hasFile($fileKey)) {
             $file = $request->file($fileKey);
             $ext = $file->getClientOriginalExtension() ?: 'jpg';
             $nameOnly = $customPrefix ? "{$customPrefix}_{$hash}.{$ext}" : uniqid().'_'.time().'.'.$ext;
@@ -113,9 +138,9 @@ class JurnalController extends Controller
      * tanggal & jam pelajaran tertentu. Null jika tidak ada / sudah kembali.
      * Mendukung dispensasi individu maupun kolektif/rombongan.
      */
-    protected function dispenAktifHariIni(?string $tanggal, int $idSiswa, $jamKe = null): ?DispensasiSiswa
+    protected function dispenAktifHariIni(?string $tanggal, int $idSiswa, $jamKe = null, ?string $waktuSelesai = null): ?DispensasiSiswa
     {
-        $map = $this->dispenMapHariIni($tanggal, $jamKe);
+        $map = $this->dispenMapHariIni($tanggal, $jamKe, $waktuSelesai);
         if (! isset($map[$idSiswa])) {
             return null;
         }
@@ -137,9 +162,9 @@ class JurnalController extends Controller
      * Null jika tidak ada / sudah kembali.
      * Mendukung dispensasi individu maupun kolektif/rombongan.
      */
-    protected function dispensaAlasan(?string $tanggal, int $idSiswa, $jamKe = null): ?string
+    protected function dispensaAlasan(?string $tanggal, int $idSiswa, $jamKe = null, ?string $waktuSelesai = null): ?string
     {
-        $dispen = $this->dispenAktifHariIni($tanggal, $idSiswa, $jamKe);
+        $dispen = $this->dispenAktifHariIni($tanggal, $idSiswa, $jamKe, $waktuSelesai);
         if (! $dispen) {
             return null;
         }
@@ -153,7 +178,7 @@ class JurnalController extends Controller
      * Mengevaluasi verifikasi Gate Satpam (Exit: Siswa Out vs Return: Siswa Returned).
      * Mendukung dispensasi individu maupun kolektif/rombongan.
      */
-    protected function dispenMapHariIni(?string $tanggal, $jamKe = null): array
+    protected function dispenMapHariIni(?string $tanggal, $jamKe = null, ?string $waktuSelesai = null): array
     {
         if (! $tanggal) {
             return [];
@@ -237,15 +262,19 @@ class JurnalController extends Controller
             $sudahMasukKelas = strtolower(trim((string) $dispen->status)) === DispensasiSiswa::STATUS_MASUK_KELAS;
 
             if ($isReturned) {
+                $isReturnedPresent = $waktuSelesai !== null
+                    && $dispen->kembali_at->lte(Carbon::parse($tanggalStr.' '.$waktuSelesai));
+
                 // Skenario b: Siswa statusnya 'Siswa Returned' (sudah verified balik ke sekolah oleh Satpam)
                 $map[$idSiswa] = (object) [
                     'id_siswa' => $idSiswa,
                     'has_dispen' => true,
-                    'is_locked' => false,
+                    'is_locked' => ! $isReturnedPresent,
                     'is_terlambat' => false,
                     'is_siswa_out' => false,
                     'is_returned' => true,
-                    'status_presensi' => 'Hadir',
+                    'status_presensi' => $isReturnedPresent ? 'Hadir' : 'Dispen',
+                    'is_returned_present' => $isReturnedPresent,
                     'badge_text' => 'Siswa Returned (Sudah Kembali)',
                     'badge_class' => 'bg-success-subtle text-success border border-success-subtle',
                     'alasan' => $dispen->alasan,
@@ -292,8 +321,32 @@ class JurnalController extends Controller
      */
     protected function evaluateJadwal(JadwalPelajaran $jadwal, ?Jurnal $jurnalHariIni = null, ?JamPelajaran $overrideJam = null): array
     {
+        $jadwal->loadMissing(['jamPelajaran', 'kelas']);
+        if (JamPulang::isPklFor(
+            $jadwal->kelas?->tingkat,
+            $jadwal->hari === 'Jumat' ? 'Jumat' : 'Senin-Kamis',
+            (int) ($jadwal->jamPelajaran?->shift_id ?? 0)
+        )) {
+            return [
+                'is_owner' => false,
+                'is_time_reached' => false,
+                'is_filled' => false,
+                'is_today' => true,
+                'can_fill' => false,
+                'can_edit' => false,
+                'lock_reason' => 'Slot ini dikunci untuk PKL / DU-DI dan tidak memerlukan jurnal KBM reguler.',
+                'jurnal' => null,
+                'waktu' => $this->formatWaktu(
+                    ($overrideJam ?? $jadwal->jamPelajaran)?->jam_mulai,
+                    ($overrideJam ?? $jadwal->jamPelajaran)?->jam_selesai
+                ),
+            ];
+        }
+
         $now = Carbon::now();
         $today = Carbon::today()->toDateString();
+        $isNonAktif = $this->eventNonAktifAktif((int) $jadwal->id_kelas, $today);
+        $isDaring = ! $isNonAktif && $this->eventDaringAktif((int) $jadwal->id_kelas, $today);
 
         $isOwner = (int) $jadwal->id_guru === $this->effectiveGuruId();
         $jam = $overrideJam ?? $jadwal->jamPelajaran;
@@ -308,21 +361,23 @@ class JurnalController extends Controller
 
         // Mode Produksi Normal: Pengisian hanya bisa dilakukan jika waktu real-time sudah melewati jam_mulai
         $isTimeReached = $jamMulai ? $now->gte($jamMulai) : true;
-        $canFill = $isOwner && $isTimeReached && ! $isFilled;
+        $canFill = $isOwner && ! $isNonAktif && ($isTimeReached || $isDaring) && ! $isFilled;
 
         // Cek tanggal jurnal: Hari Ini vs Tanggal Lalu
         $jurnalTanggal = $jurnal && $jurnal->tanggal ? $jurnal->tanggal->format('Y-m-d') : $today;
         $isToday = $jurnalTanggal === $today;
-        $canEdit = $isFilled && $isOwner && $isToday;
+        $canEdit = $isFilled && $isOwner && $isToday && ! $isNonAktif;
 
         $lockReason = null;
-        if (! $isOwner) {
+        if ($isNonAktif) {
+            $lockReason = 'KBM Non-Aktif / Libur';
+        } elseif (! $isOwner) {
             $lockReason = 'Bukan jadwal mengajar Anda';
         } elseif ($isFilled && ! $isToday) {
             $lockReason = 'Jurnal tanggal lalu terkunci (Read-Only)';
         } elseif ($isFilled) {
             $lockReason = 'Jurnal sudah diisi hari ini';
-        } elseif (! $isTimeReached) {
+        } elseif (! $isTimeReached && ! $isDaring) {
             $mulaiStr = $jamMulai ? $jamMulai->format('H:i') : '-';
             $lockReason = "Belum waktunya jam pelajaran (mulai pukul {$mulaiStr})";
         }
@@ -334,6 +389,8 @@ class JurnalController extends Controller
             'is_today' => $isToday,
             'can_fill' => $canFill,
             'can_edit' => $canEdit,
+            'is_daring' => $isDaring,
+            'is_non_aktif' => $isNonAktif,
             'lock_reason' => $lockReason,
             'jurnal' => $jurnal,
             'waktu' => $this->formatWaktu($jam?->jam_mulai, $jam?->jam_selesai),
@@ -428,12 +485,24 @@ class JurnalController extends Controller
             $query->where('id_tahun_ajaran', $tahunAktif->id);
         }
 
-        $jadwalIds = (clone $query)->pluck('id');
+        $rawSchedules = $query->get()
+            ->reject(fn (JadwalPelajaran $jadwal) => JamPulang::isPklFor(
+                $jadwal->kelas?->tingkat,
+                $hari === 'Jumat' ? 'Jumat' : 'Senin-Kamis',
+                (int) ($jadwal->jamPelajaran?->shift_id ?? 0)
+            ))
+            ->values();
+        $jadwalIds = $rawSchedules->pluck('id');
 
         $jurnalHariIni = Jurnal::whereIn('id_jadwal', $jadwalIds)
             ->whereDate('tanggal', $today)
             ->get()
             ->keyBy('id_jadwal');
+        $activeEvents = EventKhusus::query()
+            ->whereIn('tipe_dampak', ['daring', 'non_aktif'])
+            ->whereDate('tanggal_mulai', '<=', $today)
+            ->whereDate('tanggal_selesai', '>=', $today)
+            ->get(['tipe_dampak', 'scope', 'target_kelas']);
 
         // Preload jam pulang settings sekali (hindari N+1)
         $jamPulangLookup = JamPulang::getAllAsLookup();
@@ -445,8 +514,7 @@ class JurnalController extends Controller
 
         $jamListShift = $isModeKhususHariIni ? JamPelajaran::where('hari', $hari)->get()->keyBy('jam_ke') : collect();
 
-        $rawItems = $query
-            ->get()
+        $rawItems = $rawSchedules
             ->sortBy(fn ($j) => $j->jamPelajaran?->jam_ke ?? 999)
             ->values()
             ->map(function ($jadwal) use ($jurnalHariIni, $isModeKhususHariIni, $jamListShift) {
@@ -500,7 +568,7 @@ class JurnalController extends Controller
             $rawBlocks[] = $currentBlock;
         }
 
-        $jadwals = collect($rawBlocks)->map(function ($block) use ($guruId, $today, $now, $hari, $jamPulangLookup, $isSeninShiftHariIni, $isJumatShiftHariIni, $isModeKhususHariIni) {
+        $jadwals = collect($rawBlocks)->map(function ($block) use ($guruId, $today, $now, $hari, $jamPulangLookup, $isSeninShiftHariIni, $isJumatShiftHariIni, $isModeKhususHariIni, $activeEvents) {
             $first = $block[0];
             $last = end($block);
             $primaryJadwal = $first->jadwal;
@@ -548,20 +616,24 @@ class JurnalController extends Controller
             $jamMulaiStr = $first->effective_jam_obj?->jam_mulai;
             $jamMulai = $jamMulaiStr ? Carbon::parse($today.' '.$jamMulaiStr) : null;
             $isTimeReached = $jamMulai ? $now->gte($jamMulai) : true;
-            $canFill = $isOwner && $isTimeReached && ! $isFilled;
+            $isNonAktif = $this->eventNonAktifAktif((int) $primaryJadwal->id_kelas, $today, $activeEvents);
+            $isDaring = ! $isNonAktif && $this->eventDaringAktif((int) $primaryJadwal->id_kelas, $today, $activeEvents);
+            $canFill = $isOwner && ! $isNonAktif && ($isTimeReached || $isDaring) && ! $isFilled;
 
             $jurnalTanggal = $jurnalBlock && $jurnalBlock->tanggal ? $jurnalBlock->tanggal->format('Y-m-d') : $today;
             $isToday = $jurnalTanggal === $today;
-            $canEdit = $isFilled && $isOwner && $isToday;
+            $canEdit = $isFilled && $isOwner && $isToday && ! $isNonAktif;
 
             $lockReason = null;
-            if (! $isOwner) {
+            if ($isNonAktif) {
+                $lockReason = 'KBM Non-Aktif / Libur';
+            } elseif (! $isOwner) {
                 $lockReason = 'Bukan jadwal mengajar Anda';
             } elseif ($isFilled && ! $isToday) {
                 $lockReason = 'Jurnal tanggal lalu terkunci (Read-Only)';
             } elseif ($isFilled) {
                 $lockReason = 'Jurnal sudah diisi hari ini';
-            } elseif (! $isTimeReached) {
+            } elseif (! $isTimeReached && ! $isDaring) {
                 $mulaiStr = $jamMulai ? $jamMulai->format('H:i') : '-';
                 $lockReason = "Belum waktunya jam pelajaran (mulai pukul {$mulaiStr})";
             }
@@ -570,11 +642,20 @@ class JurnalController extends Controller
             $kategoriHari = ($hari === 'Jumat') ? 'Jumat' : 'Senin-Kamis';
             $tingkat = strtoupper(trim($primaryJadwal->kelas?->tingkat ?? ''));
             $lastJamKe = $last->effective_jam_ke;
-            $maxJamKe = $tingkat ? $jamPulangLookup->get("{$kategoriHari}|{$tingkat}")?->max_jam_ke : null;
-            $isPulang = $maxJamKe !== null && $lastJamKe !== null && $lastJamKe > $maxJamKe;
+            $maxJamKe = $tingkat
+                ? JamPulang::getMaxJamKe($kategoriHari, $tingkat, (int) ($primaryJadwal->jamPelajaran?->shift_id ?? 0))
+                : null;
+            $isPulang = $maxJamKe !== null && $maxJamKe !== 'pkl' && $lastJamKe !== null && $lastJamKe > $maxJamKe;
 
             $lastJamSelesaiStr = $last->effective_jam_obj?->jam_selesai;
-            $statusInfo = Jurnal::hitungStatusPengisian($jurnalBlock, $today, $lastJamSelesaiStr);
+            $statusInfo = $isNonAktif
+                ? [
+                    'status' => 'non_aktif',
+                    'label' => 'KBM Libur / Non-Aktif',
+                    'badge_class' => 'bg-secondary-subtle text-secondary border border-secondary-subtle',
+                    'icon' => 'bi-calendar-x',
+                ]
+                : Jurnal::hitungStatusPengisian($jurnalBlock, $today, $lastJamSelesaiStr, $isDaring);
 
             return (object) [
                 'jadwal' => $primaryJadwal,
@@ -588,6 +669,8 @@ class JurnalController extends Controller
                 'is_today' => $isToday,
                 'can_fill' => $canFill,
                 'can_edit' => $canEdit,
+                'is_daring' => $isDaring,
+                'is_non_aktif' => $isNonAktif,
                 'lock_reason' => $lockReason,
                 'jurnal' => $jurnalBlock,
                 'is_pulang' => $isPulang,
@@ -628,6 +711,7 @@ class JurnalController extends Controller
             ->get();
 
         $today = Carbon::today()->toDateString();
+        $isDaring = $this->eventDaringAktif((int) $jadwal->id_kelas, $today);
 
         // Calculate combined time range for the block if multiple JPs
         $lastJadwal = $groupSchedules->last();
@@ -638,7 +722,9 @@ class JurnalController extends Controller
             $jamKeList = [$jadwal->jamPelajaran->jam_ke];
         }
 
-        $dispenMap = $this->dispenMapHariIni($today, $jamKeList);
+        $waktuSelesai = $groupSchedules->last()?->jamPelajaran?->jam_selesai
+            ?? $jadwal->jamPelajaran?->jam_selesai;
+        $dispenMap = $this->dispenMapHariIni($today, $jamKeList, $waktuSelesai);
 
         // Auto-Sync Presensi Piket: tarik data Sakit/Izin dari Guru Piket untuk
         // kelas & tanggal yang sama pada JP yang sama, lalu pre-fill di form absensi jurnal KBM.
@@ -649,7 +735,7 @@ class JurnalController extends Controller
             ->get()
             ->keyBy('id_siswa');
 
-        return view('guru.jurnal.form', compact('jadwal', 'siswas', 'today', 'waktu', 'dispenMap', 'piketPresensiMap'));
+        return view('guru.jurnal.form', compact('jadwal', 'siswas', 'today', 'waktu', 'dispenMap', 'piketPresensiMap', 'isDaring'));
     }
 
     /**
@@ -662,6 +748,8 @@ class JurnalController extends Controller
         $validated = $request->validate([
             'id_jadwal' => 'required|exists:jadwal_pelajaran,id',
             'materi' => 'required|string',
+            'foto_kegiatan' => 'prohibited',
+            'hapus_foto_kegiatan' => 'nullable|boolean',
             'catatan_kejadian' => 'nullable|string',
             'tidak_hadir' => 'nullable|array',
             'presensi' => 'nullable|array',
@@ -672,6 +760,14 @@ class JurnalController extends Controller
         ]);
 
         $jadwal = JadwalPelajaran::with(['kelas', 'mapel', 'jamPelajaran'])->findOrFail($validated['id_jadwal']);
+        if ($this->eventNonAktifAktif((int) $jadwal->id_kelas, Carbon::today()->toDateString())) {
+            return redirect()
+                ->route('guru.jurnal')
+                ->with('error', 'KBM sedang non-aktif / libur untuk kelas ini; jurnal tidak dapat diisi.');
+        }
+
+        // Guard PKL / DU-DI: cek SEBELUM validasi kamera agar slot PKL
+        // langsung di-redirect tanpa membutuhkan foto kegiatan.
         $groupSchedules = $this->getGroupSchedules($jadwal);
         $firstJadwal = $groupSchedules->first() ?? $jadwal;
 
@@ -682,6 +778,15 @@ class JurnalController extends Controller
                 ->route('guru.jurnal')
                 ->with('error', $eval['lock_reason'] ?? 'Jadwal ini tidak dapat diisi saat ini.');
         }
+
+        $isDaring = $this->eventDaringAktif((int) $jadwal->id_kelas, Carbon::today()->toDateString());
+        $request->validate([
+            'foto_kegiatan_camera' => [
+                $isDaring ? 'nullable' : 'required',
+                'string',
+                'regex:/^data:image\\/(jpeg|png|webp);base64,[A-Za-z0-9+\\/=]+$/',
+            ],
+        ]);
 
         $tidakHadirIds = collect($validated['tidak_hadir'] ?? [])->map(fn ($id) => (int) $id)->unique()->values();
         $presensiInput = $request->input('presensi', []);
@@ -699,7 +804,7 @@ class JurnalController extends Controller
             $jamKe = $jadwal->jamPelajaran?->jam_ke ?? 1;
 
             $prefixJurnal = "JRN_{$namaKelas}_{$guruIdNip}_{$tglStr}_{$jamKe}";
-            $fotoKegiatanPath = $this->saveBase64OrFile($request, 'foto_kegiatan_camera', 'foto_kegiatan', 'foto_jurnal', $prefixJurnal);
+            $fotoKegiatanPath = $this->saveBase64OrFile($request, 'foto_kegiatan_camera', 'foto_kegiatan', 'foto_jurnal', $prefixJurnal, false);
 
             $todayDate = Carbon::today()->toDateString();
             $loggedGuruId = auth()->id() ?? $jadwal->id_guru;
@@ -746,8 +851,13 @@ class JurnalController extends Controller
 
                     // Integrasi dispensasi: siswa yang dispen tersetujui otomatis berstatus 'Dispen'
                     $idDispensasi = null;
-                    $dispenAktif = $this->dispenAktifHariIni($todayDate, $siswa->id, $sched->jamPelajaran?->jam_ke);
-                    if ($dispenAktif !== null) {
+                    $dispenAktif = $this->dispenAktifHariIni(
+                        $todayDate,
+                        $siswa->id,
+                        $sched->jamPelajaran?->jam_ke,
+                        $sched->jamPelajaran?->jam_selesai
+                    );
+                    if ($dispenAktif !== null && ! ($dispenAktif->is_returned_present ?? false)) {
                         $status = 'Dispen';
                         $keterangan = 'Dispensasi: '.($dispenAktif->alasan ?: 'Dispensasi');
                         $fotoSurat = null;
@@ -860,6 +970,15 @@ class JurnalController extends Controller
         $context = $this->jurnalGroupContext($request, $jurnal);
         $jurnal = $context['jurnalTampil'];
         $jadwal = $jurnal->jadwal ?? $jadwal;
+        if (JamPulang::isPklFor(
+            $jadwal->kelas?->tingkat,
+            $jadwal->hari === 'Jumat' ? 'Jumat' : 'Senin-Kamis',
+            (int) ($jadwal->jamPelajaran?->shift_id ?? 0)
+        )) {
+            return redirect()
+                ->route('guru.jurnal')
+                ->with('error', 'Slot PKL / DU-DI tidak dapat diedit sebagai jurnal KBM reguler.');
+        }
         $eval = $this->evaluateJadwal($jadwal, $jurnal);
 
         $siswas = Siswa::where('id_kelas', $jadwal->id_kelas)
@@ -873,14 +992,17 @@ class JurnalController extends Controller
             $jamKeList = [$jadwal->jamPelajaran->jam_ke];
         }
 
-        $dispenMap = $this->dispenMapHariIni($jurnalTanggal, $jamKeList);
+        $waktuSelesai = $groupSchedules->last()?->jamPelajaran?->jam_selesai
+            ?? $jadwal->jamPelajaran?->jam_selesai;
+        $dispenMap = $this->dispenMapHariIni($jurnalTanggal, $jamKeList, $waktuSelesai);
 
         $waktu = $context['waktu'];
         $absensiMap = $jurnal->absensiJurnal->keyBy('id_siswa');
         $jpOptions = $context['jpOptions'];
         $selectedJamKe = $context['selectedJamKe'];
+        $isDaring = $this->eventDaringAktif((int) $jadwal->id_kelas, $jurnalTanggal ?? $today);
 
-        return view('guru.jurnal.form', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap', 'dispenMap', 'jpOptions', 'selectedJamKe'));
+        return view('guru.jurnal.form', compact('jurnal', 'jadwal', 'siswas', 'today', 'waktu', 'absensiMap', 'dispenMap', 'jpOptions', 'selectedJamKe', 'isDaring'));
     }
 
     protected function jurnalGroupContext(Request $request, Jurnal $jurnal): array
@@ -952,8 +1074,25 @@ class JurnalController extends Controller
     {
         $this->authorizeGuru();
 
+        $jurnal->loadMissing(['jadwal.jamPelajaran', 'jadwal.kelas']);
+        abort_if(
+            $jurnal->jadwal && JamPulang::isPklFor(
+                $jurnal->jadwal->kelas?->tingkat,
+                $jurnal->jadwal->hari === 'Jumat' ? 'Jumat' : 'Senin-Kamis',
+                (int) ($jurnal->jadwal->jamPelajaran?->shift_id ?? 0)
+            ),
+            422,
+            'Slot PKL / DU-DI tidak menerima jurnal KBM reguler.'
+        );
+
         $today = Carbon::today()->toDateString();
         $jurnalTanggal = $jurnal->tanggal ? $jurnal->tanggal->format('Y-m-d') : null;
+
+        abort_if(
+            $jurnal->jadwal && $this->eventNonAktifAktif((int) $jurnal->jadwal->id_kelas, $jurnalTanggal ?? $today),
+            422,
+            'KBM sedang non-aktif / libur untuk kelas ini; jurnal tidak dapat diperbarui.'
+        );
 
         // Guard: jurnal data testing hanya dapat diubah oleh IT/QA.
         $this->authorizeTestingMutation($jurnal);
@@ -964,9 +1103,23 @@ class JurnalController extends Controller
 
         $validated = $request->validate([
             'materi' => 'required|string',
+            'foto_kegiatan' => 'prohibited',
+            'hapus_foto_kegiatan' => 'nullable|boolean',
             'catatan_kejadian' => 'nullable|string',
             'tidak_hadir' => 'nullable|array',
             'presensi' => 'nullable|array',
+        ]);
+
+        $isDaring = $this->eventDaringAktif(
+            (int) $jurnal->jadwal->id_kelas,
+            $jurnalTanggal ?? $today
+        );
+        $request->validate([
+            'foto_kegiatan_camera' => [
+                ! $isDaring && (! $jurnal->foto_kegiatan || $request->boolean('hapus_foto_kegiatan')) ? 'required' : 'nullable',
+                'string',
+                'regex:/^data:image\\/(jpeg|png|webp);base64,[A-Za-z0-9+\\/=]+$/',
+            ],
         ]);
 
         DB::transaction(function () use ($request, $validated, $jurnal) {
@@ -982,7 +1135,7 @@ class JurnalController extends Controller
                 ->where('status_siswa', 'Aktif')
                 ->get();
 
-            $newFotoKegiatan = $this->saveBase64OrFile($request, 'foto_kegiatan_camera', 'foto_kegiatan', 'foto_jurnal', $prefixJurnal);
+            $newFotoKegiatan = $this->saveBase64OrFile($request, 'foto_kegiatan_camera', 'foto_kegiatan', 'foto_jurnal', $prefixJurnal, false);
             if ($newFotoKegiatan) {
                 if ($jurnal->foto_kegiatan) {
                     if (Storage::disk('local')->exists($jurnal->foto_kegiatan)) {
@@ -992,6 +1145,13 @@ class JurnalController extends Controller
                     }
                 }
                 $jurnal->foto_kegiatan = $newFotoKegiatan;
+            } elseif ($request->boolean('hapus_foto_kegiatan') && $jurnal->foto_kegiatan) {
+                if (Storage::disk('local')->exists($jurnal->foto_kegiatan)) {
+                    Storage::disk('local')->delete($jurnal->foto_kegiatan);
+                } elseif (Storage::disk('public')->exists($jurnal->foto_kegiatan)) {
+                    Storage::disk('public')->delete($jurnal->foto_kegiatan);
+                }
+                $jurnal->foto_kegiatan = null;
             }
 
             $jurnal->materi = $validated['materi'];
@@ -1019,8 +1179,13 @@ class JurnalController extends Controller
 
                 // Integrasi dispensasi: siswa yang dispen tersetujui otomatis berstatus 'Dispen'
                 $idDispensasi = null;
-                $dispenAktif = $this->dispenAktifHariIni($jurnal->tanggal?->toDateString(), $siswa->id, $jadwal->jamPelajaran?->jam_ke);
-                if ($dispenAktif !== null) {
+                $dispenAktif = $this->dispenAktifHariIni(
+                    $jurnal->tanggal?->toDateString(),
+                    $siswa->id,
+                    $jadwal->jamPelajaran?->jam_ke,
+                    $jadwal->jamPelajaran?->jam_selesai
+                );
+                if ($dispenAktif !== null && ! ($dispenAktif->is_returned_present ?? false)) {
                     $status = 'Dispen';
                     $keterangan = 'Dispensasi: '.($dispenAktif->alasan ?: 'Dispensasi');
                     $idDispensasi = (int) $dispenAktif->id;

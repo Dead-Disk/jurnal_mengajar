@@ -21,6 +21,60 @@ class JamPulangController extends Controller
      */
     public function upsert(Request $request)
     {
+        if ($request->has('tingkat')) {
+            $validated = $request->validate([
+                'shift_id' => 'required|integer|min:0',
+                'kategori_hari' => 'required|string|in:Senin-Kamis,Jumat',
+                'tingkat' => 'required|string|in:X,XI,XII',
+                'max_jam_ke' => ['nullable', function ($attribute, $value, $fail) {
+                    if ($value === 'pkl') {
+                        return;
+                    }
+
+                    $jamKe = filter_var($value, FILTER_VALIDATE_INT);
+                    if ($jamKe === false || $jamKe < 1 || $jamKe > 30) {
+                        $fail('Batas jam pulang harus berupa nomor jam yang valid atau mode PKL.');
+                    }
+                }],
+            ]);
+
+            $shiftId = (int) $validated['shift_id'];
+            $shift = $shiftId > 0 ? ShiftPelajaran::findOrFail($shiftId) : null;
+            if ($shift && ! empty($shift->grade_levels)
+                && ! in_array($validated['tingkat'], $shift->grade_levels, true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Shift {$shift->nama_shift} tidak melayani Kelas {$validated['tingkat']}.",
+                ], 422);
+            }
+
+            $isTesting = auth()->user()?->isPetugasIt() ? 1 : 0;
+            $identity = [
+                'shift_id' => $shiftId,
+                'kategori_hari' => $validated['kategori_hari'],
+                'tingkat' => $validated['tingkat'],
+                'is_testing_data' => $isTesting,
+            ];
+            $this->authorizeTestingMutation(JamPulang::where($identity)->first());
+
+            JamPulang::updateOrCreate(
+                $identity,
+                [
+                    'max_jam_ke' => ($validated['max_jam_ke'] ?? null) === 'pkl'
+                        ? null
+                        : ($validated['max_jam_ke'] ?? null),
+                    'mode_pulang' => ($validated['max_jam_ke'] ?? null) === 'pkl' ? 'pkl' : null,
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => ($validated['max_jam_ke'] ?? null) === 'pkl'
+                    ? 'Mode Full Day PKL berhasil diaktifkan.'
+                    : 'Batas jam pulang per tingkat kelas berhasil diperbarui.',
+            ]);
+        }
+
         $request->validate([
             'jam_pulang' => 'required|array',
             'jam_pulang.*' => 'array',
@@ -98,9 +152,10 @@ class JamPulangController extends Controller
                             'shift_id' => $shiftId,
                             'is_testing_data' => $isTesting,
                         ],
-                        ['max_jam_ke' => $maxJamKe, 'is_testing_data' => $isTesting]
+                        ['max_jam_ke' => $maxJamKe, 'mode_pulang' => null, 'is_testing_data' => $isTesting]
                     );
                 }
+
             }
         }
 
@@ -133,4 +188,5 @@ class JamPulangController extends Controller
             ->route('admin.jam-pelajaran.index', $redirect)
             ->with('success', 'Pengaturan jam pulang per tingkat kelas berhasil disimpan.');
     }
+
 }

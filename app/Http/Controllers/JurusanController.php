@@ -133,6 +133,25 @@ class JurusanController extends Controller
     }
 
     /**
+     * Download template file Excel / CSV untuk import data jurusan.
+     */
+    public function downloadTemplate(Request $request)
+    {
+        $this->authorizePetugasTU();
+
+        $format = $request->input('format', 'xlsx');
+        $filename = 'template_import_jurusan';
+
+        if ($format === 'csv') {
+            return Excel::download(new JurusanExport, $filename.'.csv', ExcelFormat::CSV, [
+                'Content-Type' => 'text/csv',
+            ]);
+        }
+
+        return Excel::download(new JurusanExport, $filename.'.xlsx', ExcelFormat::XLSX);
+    }
+
+    /**
      * Export data jurusan — format xlsx (default) atau csv.
      */
     public function export(Request $request)

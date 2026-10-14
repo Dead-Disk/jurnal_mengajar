@@ -99,6 +99,20 @@
     </div>
 
     <div class="row g-4">
+        {{-- Section 2: Akses Cepat (Shortcut tombol pengelolaan) --}}
+        <div class="col-12 col-xl-4">
+            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
+                <h5 class="fw-bold text-dark mb-1">Akses Cepat</h5>
+                <p class="text-muted small mb-4">Buka halaman pengelolaan data yang sering digunakan.</p>
+                <div class="d-grid gap-3">
+                    <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 py-2 fw-semibold text-start"><i class="bi bi-person-plus-fill me-2"></i> Tambah Guru</a>
+                    <a href="{{ route('siswa.create') }}" class="btn btn-outline-success rounded-3 py-2 fw-semibold text-start"><i class="bi bi-person-plus me-2"></i> Tambah Siswa</a>
+                    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary rounded-3 py-2 fw-semibold text-start"><i class="bi bi-person-gear me-2"></i> Kelola User</a>
+                </div>
+            </div>
+        </div>
+
+        {{-- Section 3: Daftar User / Guru Baru Ditambahkan --}}
         <div class="col-12 col-xl-8">
             <div class="table-card-custom h-100">
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -134,18 +148,6 @@
                             @endforelse
                         </tbody>
                     </table>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-xl-4">
-            <div class="card border-0 shadow-sm rounded-4 p-4 bg-white h-100">
-                <h5 class="fw-bold text-dark mb-1">Akses Cepat</h5>
-                <p class="text-muted small mb-4">Buka halaman pengelolaan data yang sering digunakan.</p>
-                <div class="d-grid gap-3">
-                    <a href="{{ route('admin.guru.create') }}" class="btn btn-primary rounded-3 py-2 fw-semibold text-start"><i class="bi bi-person-plus-fill me-2"></i> Tambah Guru</a>
-                    <a href="{{ route('siswa.create') }}" class="btn btn-outline-success rounded-3 py-2 fw-semibold text-start"><i class="bi bi-person-plus me-2"></i> Tambah Siswa</a>
-                    <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary rounded-3 py-2 fw-semibold text-start"><i class="bi bi-person-gear me-2"></i> Kelola User</a>
                 </div>
             </div>
         </div>

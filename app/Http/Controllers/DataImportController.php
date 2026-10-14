@@ -237,7 +237,7 @@ class DataImportController extends Controller
             }
             $successMsg .= '.';
 
-            $session = redirect()->route('import.index')
+            $session = redirect()->route('siswa.index')
                 ->with('success', $successMsg);
 
             // Pesan warning per-baris jika ada
@@ -250,11 +250,11 @@ class DataImportController extends Controller
         } catch (KelasNotFoundDuringImport $e) {
             // Pembatalan penuh: ada kelas pada file yang belum terdaftar di Data
             // Master Kelas. Transaksi sudah di-rollback — tampilkan pesan merah
-            // informatif di paling atas halaman Import Data.
-            return redirect()->route('import.index')
+            // informatif di paling atas halaman Master Siswa.
+            return redirect()->route('siswa.index')
                 ->with('error', $e->getMessage());
         } catch (\Throwable $e) {
-            return redirect()->route('import.index')
+            return redirect()->route('siswa.index')
                 ->with('error', 'Import gagal: '.$e->getMessage());
         }
     }
@@ -304,7 +304,7 @@ class DataImportController extends Controller
             }
             $successMsg .= '.';
 
-            $session = redirect()->route('import.index')
+            $session = redirect()->route('guru.index')
                 ->with('success', $successMsg);
 
             if (! empty($importer->rowErrors)) {
@@ -314,7 +314,7 @@ class DataImportController extends Controller
             return $session;
 
         } catch (\Throwable $e) {
-            return redirect()->route('import.index')
+            return redirect()->route('guru.index')
                 ->with('error', 'Import guru gagal: '.$e->getMessage());
         }
     }
@@ -354,7 +354,7 @@ class DataImportController extends Controller
             }
             $successMsg .= '.';
 
-            $session = redirect()->route('import.index')
+            $session = redirect()->route('kelas.index')
                 ->with('success', $successMsg);
 
             if (! empty($importer->rowErrors)) {
@@ -364,7 +364,7 @@ class DataImportController extends Controller
             return $session;
 
         } catch (\Throwable $e) {
-            return redirect()->route('import.index')
+            return redirect()->route('kelas.index')
                 ->with('error', 'Import kelas gagal: '.$e->getMessage());
         }
     }
@@ -404,7 +404,7 @@ class DataImportController extends Controller
             }
             $successMsg .= '.';
 
-            $session = redirect()->route('import.index')
+            $session = redirect()->route('ruangan.index')
                 ->with('success', $successMsg);
 
             if (! empty($importer->rowErrors)) {
@@ -414,7 +414,7 @@ class DataImportController extends Controller
             return $session;
 
         } catch (\Throwable $e) {
-            return redirect()->route('import.index')
+            return redirect()->route('ruangan.index')
                 ->with('error', 'Import ruangan gagal: '.$e->getMessage());
         }
     }
@@ -464,9 +464,8 @@ class DataImportController extends Controller
             }
             $successMsg .= '.';
 
-            $session = redirect()->route('import.index')
+            $session = redirect()->route('admin.jadwal.index')
                 ->with('success', $successMsg)
-                ->with('active_tab', 'jadwal')
                 ->with('selected_tahun_ajaran_id', $tahunAjaranId);
 
             if (! empty($importer->rowErrors)) {
@@ -477,14 +476,12 @@ class DataImportController extends Controller
 
         } catch (\RuntimeException $e) {
             // Kelas tidak ditemukan → rollback otomatis (dalam DB::transaction)
-            return redirect()->route('import.index')
+            return redirect()->route('admin.jadwal.index')
                 ->with('error', $e->getMessage())
-                ->with('active_tab', 'jadwal')
                 ->with('selected_tahun_ajaran_id', $tahunAjaranId);
         } catch (\Throwable $e) {
-            return redirect()->route('import.index')
+            return redirect()->route('admin.jadwal.index')
                 ->with('error', 'Import jadwal gagal: '.$e->getMessage())
-                ->with('active_tab', 'jadwal')
                 ->with('selected_tahun_ajaran_id', $tahunAjaranId);
         }
     }
@@ -553,7 +550,7 @@ class DataImportController extends Controller
             return DB::table('siswa')->where('is_testing_data', $scope)->delete();
         });
 
-        return redirect()->route('import.index')
+        return redirect()->route('siswa.index')
             ->with('success', 'Seluruh Data Siswa Berhasil Dihapus ('.number_format($deleted).' siswa).');
     }
 
@@ -606,7 +603,7 @@ class DataImportController extends Controller
             return DB::table('users')->whereIn('id', $ids)->where('role', User::ROLE_GURU)->delete();
         });
 
-        return redirect()->route('import.index')
+        return redirect()->route('guru.index')
             ->with('success', 'Seluruh Data Guru Berhasil Dihapus ('.number_format($deleted).' guru).');
     }
 
@@ -635,7 +632,7 @@ class DataImportController extends Controller
             return $kelas + $jurusan;
         });
 
-        return redirect()->route('import.index')
+        return redirect()->route('kelas.index')
             ->with('success', 'Seluruh Data Kelas & Jurusan Berhasil Dihapus ('.number_format($deleted).' baris).');
     }
 
@@ -658,7 +655,7 @@ class DataImportController extends Controller
             return DB::table('ruangans')->where('is_testing_data', $scope)->delete();
         });
 
-        return redirect()->route('import.index')
+        return redirect()->route('ruangan.index')
             ->with('success', 'Seluruh Data Ruangan Berhasil Dihapus ('.number_format($deleted).' ruangan).');
     }
 
@@ -679,9 +676,8 @@ class DataImportController extends Controller
                 ->delete();
         });
 
-        return redirect()->route('import.index')
+        return redirect()->route('admin.jadwal.index')
             ->with('success', 'Seluruh Data Jadwal Pelajaran Berhasil Dihapus ('.number_format($deleted).' slot).')
-            ->with('active_tab', 'jadwal')
             ->with('selected_tahun_ajaran_id', $tahunAjaranId);
     }
 }

@@ -112,6 +112,11 @@
                         @if($izin->has_ttd_kepsek)
                             <img src="{{ $izin->ttd_kepsek_url }}" class="border rounded-3 p-2 bg-white" style="max-height:80px; max-width:100%;" alt="TTD Kepsek">
                             <div class="text-muted small mt-1">{{ $izin->approverKepsek?->nama }}</div>
+                        @elseif($izin->isApproved())
+                            <div class="text-success small fw-semibold">Disetujui secara Digital oleh Kepala Sekolah</div>
+                            @if($izin->approverKepsek)
+                                <div class="text-muted small mt-1">{{ $izin->approverKepsek->nama }}{{ $izin->approverKepsek->nip ? ' · NIP. '.$izin->approverKepsek->nip : '' }}</div>
+                            @endif
                         @else
                             <span class="text-muted small fst-italic">Belum ada</span>
                         @endif

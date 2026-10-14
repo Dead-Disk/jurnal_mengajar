@@ -56,7 +56,7 @@ return new class extends Migration
 
         // Restore old role enum
         if (DB::getDriverName() === 'mysql') {
-            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('super_admin','admin_tu','admin_kurikulum','guru_mapel','wali_kelas','guru_piket','piket_satpam','guru','admin') NOT NULL DEFAULT 'guru_mapel'");
+            DB::statement("ALTER TABLE users MODIFY COLUMN role ENUM('super_admin','admin_tu','admin_kurikulum','guru_mapel','wali_kelas','guru_piket','piket_satpam','guru') NOT NULL DEFAULT 'guru_mapel'");
         }
     }
 };

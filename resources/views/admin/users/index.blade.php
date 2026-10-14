@@ -133,7 +133,6 @@
                                 'waka_sdm' => 'bg-info-subtle text-info',
                                 'satpam' => 'bg-danger-subtle text-danger',
                                 'super_admin' => 'bg-dark-subtle text-dark',
-                                'admin' => 'bg-dark-subtle text-dark',
                             ][$roleValue] ?? 'bg-secondary-subtle text-secondary';
                         @endphp
                         {{-- data-user-id: target baris untuk polling AJAX status
@@ -330,6 +329,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const modal = document.getElementById('emergencySuspendModal');
+
         const form = document.getElementById('formEmergencySuspend');
         const primaryWarning = document.getElementById('emergencySuspendPrimaryWarning');
         if (!modal || !form) return;

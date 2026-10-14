@@ -94,11 +94,11 @@ class User extends Authenticatable
     ];
 
     /**
-     * Sub-role yang menandai akun istimewa (Super Admin / Admin) yang DIHINDARI
+     * Sub-role yang menandai akun istimewa (Super Admin) yang DIHINDARI
      * dari pengelolaan Petugas TU biasa. Hanya privilege manager (Petugas IT /
-     * Super Admin / Admin Utama) yang boleh melihat aksi & memanipulasi akun ini.
+     * Super Admin) yang boleh melihat aksi & memanipulasi akun ini.
      */
-    public const PROTECTED_SUB_ROLES = ['super_admin', 'admin'];
+    public const PROTECTED_SUB_ROLES = ['super_admin'];
 
     protected $table = 'users';
 
@@ -356,11 +356,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Apakah akun ini merupakan akun istimewa (Super Admin / Admin) yang
+     * Apakah akun ini merupakan akun istimewa (Super Admin) yang
      * dilindungi dari pengelolaan Petugas TU biasa?
      *
      * Akun dilindungi bila role-nya 'super_admin' ATAU sub_role-nya bernilai
-     * 'super_admin' / 'admin' (hak akses setara administrator sistem).
+     * 'super_admin' (hak akses setara administrator sistem).
      * Akun ini tidak dapat diubah, dihapus, atau di-suspend oleh user biasa.
      */
     public function isProtectedAccount(): bool
@@ -767,15 +767,15 @@ class User extends Authenticatable
      * Sub-role admin yang tetap memakai Dashboard Admin sebagai beranda.
      *
      *  - null         → "Admin Utama" (super admin legacy, sub_role kosong).
+     *  - super_admin  → Super Admin.
      *  - petugas_tu   → Admin TU.
      *  - admin_tu     → varian penamaan lain.
-     *  - admin        → admin tanpa jabatan khusus.
      */
     public const ADMIN_DASHBOARD_SUB_ROLES = [
         null,
+        'super_admin',
         'petugas_tu',
         'admin_tu',
-        'admin',
     ];
 
     /**
@@ -1039,16 +1039,33 @@ class User extends Authenticatable
             return [];
         }
 
+        $now = Carbon::now();
+        $mingguKe = min(4, (int) ceil($now->day / 7));
         $shifts = [];
 
-        if (JadwalPiket::where('hari', $hari)->where('koordinator_pagi_user_id', $this->id)->exists()) {
+        if (JadwalPiket::where('hari', $hari)
+            ->where('minggu_ke', $mingguKe)
+            ->where('bulan', $now->month)
+            ->where('tahun', $now->year)
+            ->where('koordinator_pagi_user_id', $this->id)
+            ->exists()) {
             $shifts[] = 'pagi';
         }
 
-        if (JadwalPiket::where('hari', $hari)->where('koordinator_siang_user_id', $this->id)->exists()) {
+        if (JadwalPiket::where('hari', $hari)
+            ->where('minggu_ke', $mingguKe)
+            ->where('bulan', $now->month)
+            ->where('tahun', $now->year)
+            ->where('koordinator_siang_user_id', $this->id)
+            ->exists()) {
             $shifts[] = 'siang';
         }
 
         return $shifts;
+    }
+
+    public function isKoordinatorToday(): bool
+    {
+        return $this->koordinatorShiftHariIni() !== [];
     }
 }

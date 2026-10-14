@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\IzinGuru;
+use App\Models\EventKhusus;
 use App\Models\JadwalPelajaran;
 use App\Models\Jurnal;
 use App\Models\Kelas;
@@ -103,6 +104,13 @@ class WakaSdmController extends Controller
             ->where('hari', $hariIniStr)
             ->when($tahunAktif, fn ($q) => $q->where('id_tahun_ajaran', $tahunAktif->id))
             ->get();
+        $kelasNonAktifIds = EventKhusus::nonAktifClassIdsOnDate(
+            $todayStr,
+            $jadwalHariIni->pluck('id_kelas')
+        );
+        $jadwalKBMAktifHariIni = $jadwalHariIni
+            ->reject(fn ($jadwal) => $kelasNonAktifIds->contains($jadwal->id_kelas))
+            ->values();
 
         $idGuruTerjadwal = $jadwalHariIni->pluck('id_guru')->filter()->unique();
         $totalGuruTerjadwalHariIni = $idGuruTerjadwal->count();
@@ -130,12 +138,12 @@ class WakaSdmController extends Controller
         $totalGuruHadirHariIni = $guruHadirIds->count();
 
         // 5. Total Sesi & Total Kelas Kosong (Belum Diisi Jurnal / Guru Belum Hadir)
-        $totalSesiHariIni = $jadwalHariIni->count();
+        $totalSesiHariIni = $jadwalKBMAktifHariIni->count();
         $sesiTerisiHariIni = 0;
         $sesiKosongHariIni = 0;
 
         $kelasStatus = [];
-        foreach ($jadwalHariIni as $jadwal) {
+        foreach ($jadwalKBMAktifHariIni as $jadwal) {
             $jurnal = $jurnalHariIni->get($jadwal->id);
             $isTerisi = $jurnal && ! empty($jurnal->materi);
 
@@ -204,30 +212,33 @@ class WakaSdmController extends Controller
             });
 
         // 8. CARD 2: Pantauan Kelas Kosong (Jam Ini / Hari Ini Belum Diisi)
-        $kelasKosongHariIniList = $jadwalHariIni->filter(function ($jadwal) use ($jurnalHariIni) {
+        $jadwalKosongHariIni = $jadwalHariIni->filter(function ($jadwal) use ($jurnalHariIni) {
             $jurnal = $jurnalHariIni->get($jadwal->id);
 
             return ! $jurnal || empty($jurnal->materi);
-        })->map(function ($jadwal) use ($jurnalHariIni, $daftarIzinHariIni) {
-            $jurnal = $jurnalHariIni->get($jadwal->id);
-            $izin = $daftarIzinHariIni->firstWhere('user_id', $jadwal->id_guru);
-
-            // `waUrl` sengaja TIDAK dibuat di sini: baris yang dirender ke user
-            // adalah hasil GROUPING (lihat groupKelasKosongBerurutan), bukan
-            // sesi tunggal. Membentuk URL per sesi berarti membangun N URL lalu
-            // membuang N-1-nya.
-            return (object) [
-                'jadwal' => $jadwal,
-                'jurnal' => $jurnal,
-                'izin' => $izin,
-                'guru' => $jadwal->guru,
-                'kelas' => $jadwal->kelas,
-                'mapel' => $jadwal->mapel,
-                'jam' => $jadwal->jamPelajaran,
-            ];
-        })->sortBy(function ($item) {
-            return $item->jam?->jam_ke ?? 99;
         })->values();
+        $kelasKosongKarenaEventNonAktif = $jadwalKosongHariIni->isNotEmpty()
+            && $jadwalKosongHariIni->every(fn ($jadwal) => $kelasNonAktifIds->contains($jadwal->id_kelas));
+        $kelasKosongHariIniList = $jadwalKosongHariIni
+            ->reject(fn ($jadwal) => $kelasNonAktifIds->contains($jadwal->id_kelas))
+            ->map(function ($jadwal) use ($jurnalHariIni, $daftarIzinHariIni) {
+                $jurnal = $jurnalHariIni->get($jadwal->id);
+                $izin = $daftarIzinHariIni->firstWhere('user_id', $jadwal->id_guru);
+
+                // `waUrl` sengaja TIDAK dibuat di sini: baris yang dirender ke user
+                // adalah hasil grouping, jadi URL disusun setelah sesi digabung.
+                return (object) [
+                    'jadwal' => $jadwal,
+                    'jurnal' => $jurnal,
+                    'izin' => $izin,
+                    'guru' => $jadwal->guru,
+                    'kelas' => $jadwal->kelas,
+                    'mapel' => $jadwal->mapel,
+                    'jam' => $jadwal->jamPelajaran,
+                ];
+            })->sortBy(function ($item) {
+                return $item->jam?->jam_ke ?? 99;
+            })->values();
 
         // 8b. Grouping: satu guru yang mengajar kelas + mapel yang sama pada
         // jam-jam BERUNTUN digabung jadi satu baris (mis. Jam Ke-1..4 ->
@@ -299,6 +310,7 @@ class WakaSdmController extends Controller
             'persentaseKehadiranBulanIni',
             'guruIzinHariIniList',
             'kelasKosongHariIniList',
+            'kelasKosongKarenaEventNonAktif',
             'kelasKosongSearch',
             'kelasKosongTotal',
             'kelasKosongSesiTersaring',

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AppSetting;
 use App\Models\JamPelajaran;
 use App\Models\JamPulang;
+use App\Models\JadwalPelajaran;
 use App\Models\Jurusan;
 use App\Models\Kelas;
 use App\Models\MataPelajaran;
@@ -110,6 +111,11 @@ class ScheduleModeSystemTest extends TestCase
         $response->assertOk()
             ->assertSee('Mode Global')
             ->assertSee('07.00 – 07.45')
+            ->assertSee('function initMasterJamPelajaranPage()', false)
+            ->assertSee('initMasterJamPelajaranPage();', false)
+            ->assertSee("document.addEventListener('click', function (event)", false)
+            ->assertSee('#btnTambahIstirahat, .btn-tambah-istirahat', false)
+            ->assertSee('rows.appendChild(row);', false)
             ->assertDontSee('Pilih Shift:')
             ->assertDontSee('+ Tambah Shift')
             ->assertDontSee('Kelola Daftar Shift')
@@ -117,6 +123,79 @@ class ScheduleModeSystemTest extends TestCase
             ->assertDontSee('Kembali ke Mode Global')
             ->assertDontSee('Tipe Penjadwalan Sekolah')
             ->assertDontSee('Multi-Shift');
+    }
+
+    public function test_plotting_and_tahun_ajaran_count_are_isolated_by_schedule_mode(): void
+    {
+        $shift = $this->makeShift('Shift 1 (Pagi)');
+        $this->tahun->update(['mode_jadwal' => TahunAjaran::MODE_SHIFT]);
+        $kelas = Kelas::create([
+            'nama_kelas' => 'X-RPL-1',
+            'tingkat' => 'X',
+            'shift_id' => $shift->id,
+        ]);
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Matematika']);
+        $guru = User::create([
+            'nama' => 'Guru Mode Jadwal',
+            'username' => 'gurumode',
+            'password' => bcrypt('password'),
+            'role' => User::ROLE_GURU,
+            'is_active' => true,
+        ]);
+
+        $shiftSlots = [
+            $this->makeSlot($shift->id, '07:00', '07:45', 1),
+            $this->makeSlot($shift->id, '07:45', '08:30', 2),
+        ];
+        $shiftSchedules = collect($shiftSlots)->map(fn (JamPelajaran $slot) => JadwalPelajaran::create([
+            'group_id' => (string) \Illuminate\Support\Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $slot->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
+            'id_tahun_ajaran' => $this->tahun->id,
+            'mode_jadwal' => TahunAjaran::MODE_SHIFT,
+        ]));
+        $globalSchedule = JadwalPelajaran::create([
+            'group_id' => (string) \Illuminate\Support\Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $this->makeSlot(null, '07:00', '07:45')->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
+            'id_tahun_ajaran' => $this->tahun->id,
+            'mode_jadwal' => TahunAjaran::MODE_GLOBAL,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->getJson(route('admin.jadwal.index', ['id_kelas' => $kelas->id]))
+            ->assertOk()
+            ->assertJsonCount(2, 'jadwal');
+        $this->get(route('tahun-ajaran.index'))
+            ->assertOk()
+            ->assertSee('2 slot');
+
+        $this->tahun->update(['mode_jadwal' => TahunAjaran::MODE_GLOBAL]);
+
+        $globalResponse = $this->getJson(route('admin.jadwal.index', ['id_kelas' => $kelas->id]));
+        $globalResponse->assertOk()->assertJsonCount(1, 'jadwal');
+        $this->assertSame($globalSchedule->id, $globalResponse->json('jadwal.0.id'));
+        $this->get(route('tahun-ajaran.index'))
+            ->assertOk()
+            ->assertSee('1 slot');
+        foreach ($shiftSchedules as $schedule) {
+            $this->assertDatabaseHas('jadwal_pelajaran', [
+                'id' => $schedule->id,
+                'mode_jadwal' => TahunAjaran::MODE_SHIFT,
+                'deleted_at' => null,
+            ]);
+        }
+
+        $this->tahun->update(['mode_jadwal' => TahunAjaran::MODE_SHIFT]);
+        $this->getJson(route('admin.jadwal.index', ['id_kelas' => $kelas->id]))
+            ->assertOk()
+            ->assertJsonCount(2, 'jadwal');
     }
 
     public function test_shift_schedule_mode_defaults_index_to_shift_management_ui_hiding_global_slots(): void
@@ -326,6 +405,7 @@ class ScheduleModeSystemTest extends TestCase
             'hari' => 'Senin',
             'id_kelas' => $kelas->id,
             'id_guru' => $guru->id,
+            'mode_jadwal' => TahunAjaran::MODE_SHIFT,
         ]);
     }
 

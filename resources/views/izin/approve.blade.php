@@ -219,8 +219,8 @@
         @if($state === 'kepsek')
             <div class="card border-0 shadow-sm rounded-4 mb-4">
                 <div class="card-body p-4">
-                    <h6 class="fw-bold mb-1"><i class="bi bi-signature me-1"></i>Tanda Tangan & Persetujuan Kepala Sekolah</h6>
-                    <p class="text-muted small mb-3">Ini adalah langkah <strong>terakhir</strong>. Goreskan tanda tangan pada area di bawah, lalu pilih <strong>Setujui</strong> untuk mengesahkan izin, atau <strong>Tolak</strong> beserta catatannya.</p>
+                    <h6 class="fw-bold mb-1"><i class="bi bi-check2-circle me-1"></i>Persetujuan Kepala Sekolah</h6>
+                    <p class="text-muted small mb-3">Ini adalah langkah <strong>terakhir</strong>. Pilih <strong>Setujui</strong> untuk mengesahkan izin secara digital, atau <strong>Tolak</strong> beserta catatannya.</p>
                     <form method="POST" action="{{ route('izin.approval.submit', $token) }}" id="formApproval">
                         @csrf
 
@@ -269,12 +269,6 @@
                             @endif
                         @endif
 
-                        <canvas id="canvasTtd" width="600" height="220">Browser tidak mendukung Canvas.</canvas>
-                        <div class="d-flex justify-content-end my-2">
-                            <button type="button" id="btnClear" class="btn btn-sm btn-outline-danger rounded-3"><i class="bi bi-eraser me-1"></i> Hapus</button>
-                        </div>
-                        <input type="hidden" name="ttd_waka" id="ttdWaka" value="">
-                        <input type="hidden" name="ttd_kepsek" id="ttdKepsek" value="">
                         <div class="mb-3">
                             <label class="form-label small fw-semibold text-secondary">Catatan Penolakan <span class="text-muted fw-normal">(opsional, bila menolak)</span></label>
                             <textarea name="catatan_penolakan" rows="2" maxlength="500" class="form-control rounded-3" placeholder="Contoh: Lampiran kurang lengkap..."></textarea>
@@ -282,7 +276,7 @@
                         <hr>
                         <div class="d-flex flex-wrap justify-content-end gap-2">
                             <button type="submit" name="keputusan" value="tolak" class="btn btn-outline-danger rounded-3 px-4 py-2 fw-semibold"><i class="bi bi-x-circle me-1"></i> Tolak</button>
-                            <button type="submit" name="keputusan" value="setujui" id="btnSetujui" class="btn btn-success rounded-3 px-4 py-2 fw-semibold shadow-sm"><i class="bi bi-check2-circle me-1"></i> Setujui & Tanda Tangan</button>
+                            <button type="submit" name="keputusan" value="setujui" id="btnSetujui" class="btn btn-success rounded-3 px-4 py-2 fw-semibold shadow-sm"><i class="bi bi-check2-circle me-1"></i> Setujui</button>
                         </div>
                     </form>
                 </div>
@@ -295,7 +289,10 @@
                 <div class="card-body p-4 text-center">
                     <span class="d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px; border-radius: 50%; background: #dcfce7; color: #166534;"><i class="bi bi-check2-circle fs-2"></i></span>
                     <h5 class="fw-bold text-success mb-1">Izin Telah Disetujui</h5>
-                    <p class="text-muted mb-0">Pengajuan izin atas nama <strong>{{ $guru->nama ?? '-' }}</strong> telah disetujui dan ditandatangani Kepala Sekolah pada {{ $izin->approved_at?->translatedFormat('d F Y, H:i') }}.</p>
+                    <p class="text-muted mb-0">Pengajuan izin atas nama <strong>{{ $guru->nama ?? '-' }}</strong> telah disetujui secara digital oleh Kepala Sekolah pada {{ $izin->approved_at?->translatedFormat('d F Y, H:i') }}.</p>
+                    @if($izin->approverKepsek)
+                        <div class="mt-3 fw-semibold">{{ $izin->approverKepsek->nama }}{{ $izin->approverKepsek->nip ? ' · NIP. '.$izin->approverKepsek->nip : '' }}</div>
+                    @endif
                     @if($izin->has_ttd_kepsek)
                         <div class="mt-4"><div class="text-muted small mb-2">Tanda Tangan Kepala Sekolah</div><div class="border rounded-3 p-2 bg-white d-inline-block shadow-sm"><img src="{{ $izin->ttd_kepsek_url }}" class="ttd-img" alt="TTD Kepala Sekolah"></div></div>
                     @endif
@@ -354,27 +351,33 @@
 
                 btnClear.addEventListener('click', function () { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); inked = false; ttdWakaHidden.value = ''; ttdKepsekHidden.value = ''; });
 
+            }
+
+            if (formApproval) {
                 formApproval.addEventListener('submit', function (e) {
                     const clicked = document.activeElement;
-                    const requireTtd = (clicked && clicked.name === 'keputusan' && clicked.value === 'setujui');
-                    if (requireTtd) {
-                        const val = state === 'waka' ? ttdWakaHidden.value : ttdKepsekHidden.value;
-                        if (!val) { e.preventDefault(); alert('Silakan goreskan tanda tangan terlebih dahulu.'); return; }
+                    const isApproval = clicked && clicked.name === 'keputusan' && clicked.value === 'setujui';
+                    if (!isApproval) return;
 
-                        // Mode tautan publik: wajib memilih pejabat Waka SDM / Kepsek.
-                        if (state === 'waka' && @json(!$isWakaSdmAuth)) {
-                            const selWaka = document.getElementById('selectWakaSdm');
-                            if (selWaka && !selWaka.value) {
-                                e.preventDefault();
-                                alert('Silakan pilih pejabat Waka SDM / Kepegawaian terlebih dahulu.');
-                            }
+                    if (state === 'waka' && !ttdWakaHidden.value) {
+                        e.preventDefault();
+                        alert('Silakan goreskan tanda tangan terlebih dahulu.');
+                        return;
+                    }
+
+                    // Mode tautan publik: identifikasi pejabat tetap diperlukan, tanda tangan Kepsek tidak.
+                    if (state === 'waka' && @json(!$isWakaSdmAuth)) {
+                        const selWaka = document.getElementById('selectWakaSdm');
+                        if (selWaka && !selWaka.value) {
+                            e.preventDefault();
+                            alert('Silakan pilih pejabat Waka SDM / Kepegawaian terlebih dahulu.');
                         }
-                        if (state === 'kepsek' && @json(!($isKepsekAuth ?? false))) {
-                            const selKepsek = document.getElementById('selectKepsek');
-                            if (selKepsek && !selKepsek.value) {
-                                e.preventDefault();
-                                alert('Silakan pilih pejabat Kepala Sekolah terlebih dahulu.');
-                            }
+                    }
+                    if (state === 'kepsek' && @json(!($isKepsekAuth ?? false))) {
+                        const selKepsek = document.getElementById('selectKepsek');
+                        if (selKepsek && !selKepsek.value) {
+                            e.preventDefault();
+                            alert('Silakan pilih pejabat Kepala Sekolah terlebih dahulu.');
                         }
                     }
                 });

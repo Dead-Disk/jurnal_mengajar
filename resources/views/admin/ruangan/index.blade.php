@@ -32,6 +32,12 @@
                     </ul>
                 </div>
 
+                <!-- Tombol Import Ruangan -->
+                <button type="button" class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto d-flex align-items-center justify-content-center gap-1.5" data-bs-toggle="modal" data-bs-target="#modalImportRuangan">
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    <span>Import Data</span>
+                </button>
+
                 <!-- Tombol Tambah Ruangan (halaman dedicated) -->
                 <a href="{{ route('ruangan.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center">
                     <i class="bi bi-plus-lg me-1"></i> Tambah Ruangan
@@ -112,6 +118,38 @@
             </div>
         </div>
     </div>
+    {{-- ====================================================== --}}
+    {{-- ZONA BERBAHAYA: RESET / HAPUS SEMUA DATA RUANGAN        --}}
+    {{-- Proteksi ketat: HANYA Super Admin                       --}}
+    {{-- ====================================================== --}}
+    @if(auth()->user()->sub_role === 'super_admin')
+    <div class="card border-0 rounded-4 shadow-sm mb-4" style="border: 1px solid #fee2e2 !important; background: #fff7f7;">
+        <div class="card-body p-4 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-trash3-fill text-white fs-5"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold text-danger mb-1">Zona Berbahaya — Reset / Hapus Semua Data Ruangan</h5>
+                    <p class="text-muted mb-0 small" style="color: #991b1b !important;">
+                        Menghapus seluruh data ruangan beserta pengurus ruangan. Referensi ruangan pada jadwal pelajaran akan dikosongkan.
+                    </p>
+                </div>
+            </div>
+            <button type="button"
+                    class="btn btn-danger rounded-3 px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 flex-shrink-0"
+                    style="font-size:0.875rem;"
+                    data-reset-route="{{ route('import.reset-ruangan') }}"
+                    data-reset-label="seluruh data Ruangan"
+                    data-reset-phrase="HAPUS DATA RUANGAN"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalResetData">
+                <i class="bi bi-trash3"></i>
+                <span>Reset / Hapus Semua Data Ruangan</span>
+            </button>
+        </div>
+    </div>
+    @endif
 </div>
 
 {{-- ==================== MODAL IMPORT RUANGAN ==================== --}}
@@ -166,6 +204,8 @@
     </div>
 </div>
 @endif
+
+@include('admin.common._modal_reset')
 
 @endsection
 
@@ -233,6 +273,43 @@
             e.preventDefault();
             refresh();
         });
+    })();
+
+    // ── Script Modal Reset Data ──
+    (function () {
+        const modalEl  = document.getElementById('modalResetData');
+        const form     = document.getElementById('formResetData');
+        const input    = document.getElementById('resetConfirmInput');
+        const btnReset = document.getElementById('btnConfirmReset');
+        const lblText  = document.getElementById('resetLabelText');
+        const phText   = document.getElementById('resetPhraseText');
+        const titleText = document.getElementById('resetModalTitleText');
+
+        if (!modalEl || !form || !input || !btnReset) return;
+
+        let expectedPhrase = '';
+
+        function lockReset() {
+            input.value = '';
+            btnReset.disabled = true;
+        }
+
+        document.querySelectorAll('[data-reset-route]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                expectedPhrase = (btn.dataset.resetPhrase || '').toUpperCase();
+                form.setAttribute('action', btn.dataset.resetRoute);
+                lblText.textContent = btn.dataset.resetLabel || 'seluruh data';
+                phText.textContent  = expectedPhrase;
+                if (titleText) titleText.textContent = btn.dataset.resetTitle || 'Konfirmasi Hapus Masal Data';
+                lockReset();
+            });
+        });
+
+        input.addEventListener('input', function () {
+            btnReset.disabled = this.value.trim().toUpperCase() !== expectedPhrase;
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', lockReset);
     })();
 </script>
 @endpush

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Kurikulum;
 
 use App\Http\Controllers\Controller;
 use App\Models\AgendaRutin;
+use App\Models\TahunAjaran;
 use Illuminate\Http\Request;
 
 class AgendaRutinController extends Controller
@@ -101,39 +102,43 @@ class AgendaRutinController extends Controller
     }
 
     /**
-     * Simpan / update satu hari agenda rutin per konteks shift
-     * (updateOrCreate per hari+jam_ke+shift_id+is_testing_data).
+     * Simpan / update satu agenda per hari, Tahun Ajaran, shift, dan konteks data.
      *
      * @param  int  $shiftId  0 = Global, > 0 = konfigurasi khusus shift tsb.
      */
     protected function saveAgendaHari(string $hari, int $jamKe, bool $isActive, int $shiftId = 0): void
     {
+        $tahunAjaranAktif = TahunAjaran::forCurrentContext()
+            ->where('is_active', true)
+            ->first();
+        abort_if(! $tahunAjaranAktif, 422, 'Tidak ada Tahun Ajaran aktif untuk menyimpan Agenda Rutin.');
+
         // Auto-label data testing: Petugas IT / QA Tester (termasuk saat
         // impersonation) menyimpan is_testing_data = 1, user lain = 0.
         $isTesting = auth()->user()?->isPetugasIt() ? 1 : 0;
 
         // Guard: simpan ulang tidak boleh menimpa data testing (kecuali IT/QA).
-        // Guard diberi batas shift juga — record testing pada satu shift tidak
-        // boleh memblokir shift lain dengan kombinasi hari+jam_ke yang sama.
         $existing = AgendaRutin::where('hari', $hari)
-            ->where('jam_ke', $jamKe)
+            ->where('tahun_ajaran_id', $tahunAjaranAktif->id)
             ->ofShift($shiftId)
             ->first();
         $this->authorizeTestingMutation($existing);
 
-        // updateOrCreate mencegah error duplicate entry: kombinasi
-        // (hari, jam_ke, shift_id, is_testing_data) kini unik.
+        // Jam adalah nilai konfigurasi, bukan identitas agenda; perubahan jam
+        // harus memperbarui satu baris yang sama, bukan menumpuk agenda aktif.
         AgendaRutin::updateOrCreate(
             [
                 'hari' => $hari,
-                'jam_ke' => $jamKe,
                 'shift_id' => $shiftId,
+                'tahun_ajaran_id' => $tahunAjaranAktif->id,
                 'is_testing_data' => $isTesting,
             ],
             [
+                'jam_ke' => $jamKe,
                 'nama_agenda' => $this->agendaName($hari),
                 'is_active' => $isActive,
                 'shift_id' => $shiftId,
+                'tahun_ajaran_id' => $tahunAjaranAktif->id,
                 'is_testing_data' => $isTesting,
             ]
         );

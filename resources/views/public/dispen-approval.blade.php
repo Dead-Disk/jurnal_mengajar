@@ -149,7 +149,7 @@
                             <input type="hidden" name="waka_kesiswaan_id" id="wakaHidden" value="{{ $loggedInWakaId }}">
                             <select id="wakaSelect" class="form-select rounded-3" disabled aria-label="Waka Kesiswaan penandatangan">
                                 <option value="{{ $loggedInWakaId }}" selected>
-                                    {{ $loggedInWakaUser?->nama ?? 'Waka Kesiswaan' }}{{ $loggedInWakaUser && $loggedInWakaUser->nip ? ' — NIP. ' . $loggedInWakaUser->nip : '' }}
+                                    {{ $loggedInWakaUser?->nama ?? 'Waka Kesiswaan' 1}}{{ $loggedInWakaUser && $loggedInWakaUser->nip ? ' — NIP. ' . $loggedInWakaUser->nip : '' }}
                                 </option>
                             </select>
                         @else

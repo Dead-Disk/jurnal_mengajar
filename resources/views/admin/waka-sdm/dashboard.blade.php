@@ -402,11 +402,19 @@
                             <a href="{{ route('waka-sdm.dashboard', $kelasKosongLinkParams) }}" class="text-sky-600 font-semibold hover:underline">Hapus pencarian</a>
                         </p>
                     @else
-                        <div class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mb-3">
-                            <i class="bi bi-check2-all text-xl"></i>
-                        </div>
-                        <h6 class="text-sm font-bold text-slate-800 mb-1">Semua sesi KBM hari ini sudah terisi dengan baik.</h6>
-                        <p class="text-xs text-slate-500 mb-0">Tidak ada kelas kosong atau jurnal mengajar yang terlewatkan hari ini.</p>
+                        @if($kelasKosongKarenaEventNonAktif)
+                            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 text-slate-600 mb-3">
+                                <i class="bi bi-calendar-x text-xl"></i>
+                            </div>
+                            <h6 class="text-sm font-bold text-slate-800 mb-1">KBM Non-Aktif / Kegiatan Event Khusus</h6>
+                            <p class="text-xs text-slate-500 mb-0">Sesi yang belum diisi hanya mencakup kelas yang sedang libur atau terdampak event khusus.</p>
+                        @else
+                            <div class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 mb-3">
+                                <i class="bi bi-check2-all text-xl"></i>
+                            </div>
+                            <h6 class="text-sm font-bold text-slate-800 mb-1">Semua sesi KBM hari ini sudah terisi dengan baik.</h6>
+                            <p class="text-xs text-slate-500 mb-0">Tidak ada kelas kosong atau jurnal mengajar yang terlewatkan hari ini.</p>
+                        @endif
                     @endif
                 </div>
             @else

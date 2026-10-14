@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\IzinGuru;
+use App\Models\EventKhusus;
 use App\Models\JadwalPelajaran;
 use App\Models\JadwalPiket;
 use App\Models\JamPelajaran;
@@ -14,6 +15,7 @@ use App\Models\TahunAjaran;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -181,6 +183,111 @@ class WakaPiketTest extends TestCase
         $res->assertSee('X IPA 1');
         $res->assertSee($petugas->nama);
         $res->assertSee($koordinator->nama);
+    }
+
+    public function test_event_non_aktif_mengeluarkan_kelas_dari_widget_kelas_kosong(): void
+    {
+        $waka = $this->makeUser('admin', 'waka_piket');
+        $guru = $this->makeUser('guru', 'guru_mapel', '081234567801');
+        $kelas = Kelas::create(['nama_kelas' => 'XI RPL 1', 'tingkat' => 'XI']);
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Pemrograman', 'kode_mapel' => 'PRG']);
+        $tahun = TahunAjaran::where('is_active', true)->first()
+            ?? TahunAjaran::create([
+                'tahun_ajaran' => '2026/2027',
+                'semester' => 'Ganjil',
+                'is_active' => true,
+            ]);
+        $jam = JamPelajaran::create([
+            'hari' => 'Senin',
+            'kategori_hari' => 'Senin-Kamis',
+            'jam_ke' => 1,
+            'jam_mulai' => '07:00',
+            'jam_selesai' => '08:40',
+            'jenis' => 'kbm',
+        ]);
+        DB::table('jadwal_pelajaran')->insert([
+            'group_id' => (string) Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
+            'id_tahun_ajaran' => $tahun->id,
+            'is_testing_data' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        EventKhusus::create([
+            'nama_event' => 'Classmeeting',
+            'tanggal_mulai' => '2026-08-31',
+            'tanggal_selesai' => '2026-08-31',
+            'tipe_dampak' => 'non_aktif',
+            'scope' => 'kelas_tertentu',
+            'target_kelas' => [$kelas->id],
+        ]);
+
+        $this->actingAs($waka)
+            ->get(route('waka-piket.dashboard'))
+            ->assertOk()
+            ->assertSee('Kelas Kosong Shift Pagi')
+            ->assertSee('Kelas Kosong Shift Siang')
+            ->assertSee('Tidak ada kelas kosong pada shift ini.')
+            ->assertDontSee('XI RPL 1')
+            ->assertDontSee('Pemrograman');
+    }
+
+    public function test_dashboard_guru_piket_tidak_menghitung_kelas_event_non_aktif(): void
+    {
+        $it = $this->makeUser('petugas_it');
+        $guru = $this->makeUser('guru', 'guru_mapel');
+        $kelas = Kelas::create(['nama_kelas' => 'XI AK 1', 'tingkat' => 'XI']);
+        $mapel = MataPelajaran::create(['nama_mapel' => 'Akuntansi', 'kode_mapel' => 'AKT']);
+        $tahun = TahunAjaran::where('is_active', true)->first()
+            ?? TahunAjaran::create([
+                'tahun_ajaran' => '2026/2027',
+                'semester' => 'Ganjil',
+                'is_active' => true,
+            ]);
+        $jam = JamPelajaran::create([
+            'hari' => 'Senin',
+            'kategori_hari' => 'Senin-Kamis',
+            'jam_ke' => 1,
+            'jam_mulai' => '07:00',
+            'jam_selesai' => '08:40',
+            'jenis' => 'kbm',
+        ]);
+        DB::table('jadwal_pelajaran')->insert([
+            'group_id' => (string) Str::uuid(),
+            'hari' => 'Senin',
+            'id_jam' => $jam->id,
+            'id_kelas' => $kelas->id,
+            'id_mapel' => $mapel->id,
+            'id_guru' => $guru->id,
+            'id_tahun_ajaran' => $tahun->id,
+            'is_testing_data' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        EventKhusus::create([
+            'nama_event' => 'Classmeeting',
+            'tanggal_mulai' => '2026-08-31',
+            'tanggal_selesai' => '2026-08-31',
+            'tipe_dampak' => 'non_aktif',
+            'scope' => 'kelas_tertentu',
+            'target_kelas' => [$kelas->id],
+        ]);
+
+        $html = $this->actingAs($it)
+            ->get(route('piket.dashboard'))
+            ->assertOk()
+            ->getContent();
+
+        $titlePosition = strpos($html, 'Kelas KBM Belum Terisi');
+        $this->assertNotFalse($titlePosition);
+        $this->assertSame(1, preg_match(
+            '/Kelas KBM Belum Terisi.*?font-size:\s*1\.6rem; line-height:\s*1\.1;">0<\/div>/s',
+            substr($html, $titlePosition)
+        ));
     }
 
     public function test_guru_dengan_izin_disetujui_tanpa_record_dihitung_berizin(): void

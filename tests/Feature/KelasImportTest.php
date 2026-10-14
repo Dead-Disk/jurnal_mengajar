@@ -103,7 +103,7 @@ class KelasImportTest extends TestCase
             'file_kelas' => $file,
         ]);
 
-        $response->assertRedirect(route('import.index'));
+        $response->assertRedirect(route('kelas.index'));
         $response->assertSessionHas('success', 'Import kelas berhasil! 71 kelas baru dibuat.');
         $response->assertSessionMissing('import_warnings');
 
@@ -132,7 +132,7 @@ class KelasImportTest extends TestCase
 
         $this->actingAs($admin)->post(route('import.kelas'), [
             'file_kelas' => $file,
-        ])->assertRedirect(route('import.index'))
+        ])->assertRedirect(route('kelas.index'))
             ->assertSessionHas('success', 'Import kelas berhasil! 2 kelas baru dibuat, 1 baris dilewati.')
             ->assertSessionHas('import_warnings');
 
@@ -188,7 +188,7 @@ class KelasImportTest extends TestCase
         $file = $this->upload($path);
 
         $this->actingAs($admin)->post(route('import.kelas'), ['file_kelas' => $file])
-            ->assertRedirect(route('import.index'))
+            ->assertRedirect(route('kelas.index'))
             ->assertSessionHas('success', 'Import kelas berhasil! 1 kelas baru dibuat.')
             ->assertSessionMissing('import_warnings');
 
@@ -241,7 +241,7 @@ class KelasImportTest extends TestCase
         $file = $this->upload($path);
 
         $this->actingAs($admin)->post(route('import.kelas'), ['file_kelas' => $file])
-            ->assertRedirect(route('import.index'))
+            ->assertRedirect(route('kelas.index'))
             ->assertSessionHas('success', 'Import kelas berhasil! 0 kelas baru dibuat, 1 kelas diperbarui.')
             ->assertSessionMissing('error');
 
@@ -277,7 +277,7 @@ class KelasImportTest extends TestCase
         $file = $this->upload($path);
 
         $this->actingAs($admin)->post(route('import.kelas'), ['file_kelas' => $file])
-            ->assertRedirect(route('import.index'))
+            ->assertRedirect(route('kelas.index'))
             ->assertSessionHas('success', 'Import kelas berhasil! 3 kelas baru dibuat.')
             ->assertSessionMissing('import_warnings');
 
@@ -321,7 +321,7 @@ class KelasImportTest extends TestCase
         $file = $this->upload($path);
 
         $this->post(route('import.kelas'), ['file_kelas' => $file])
-            ->assertRedirect(route('import.index'))
+            ->assertRedirect(route('kelas.index'))
             ->assertSessionHas('success', 'Import kelas berhasil! 1 kelas baru dibuat.');
 
         $this->assertSame(1, $this->visibleKelasCount(), 'QA + Switch View As Admin TU menulis partisi real');

@@ -821,7 +821,7 @@
                 //     menu tampil bila user tercatat sebagai koordinator_pagi/siang
                 //     pada jadwal hari berjalan. Berbasis jadwal, jadi berlaku juga
                 //     untuk akun Petugas IT yang sedang preview/guru berjadwal.
-                $isKoordinatorPiketRole = $user && $user->koordinatorShiftHariIni() !== [];
+                $isKoordinatorPiketRole = $user && $user->isKoordinatorToday();
 
                 // 4. Role Wali Kelas (role=guru & sub_role=wali_kelas, atau terikat sebagai wali kelas).
                 //    Deteksi lewat model (sub_role wali_kelas / terikat kelas), bukan hanya role string.
@@ -911,16 +911,18 @@
                     </div>
                 </div>
 
-                <!-- Dashboard -->
-                <div class="nav-item-container">
-                    <a href="{{ route('koordinator.piket') }}"
-                       class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-speedometer2"></i>
-                            <span>Dashboard</span>
-                        </span>
-                    </a>
-                </div>
+                @if($isKoordinatorPiketRole)
+                    <!-- Dashboard -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('koordinator.piket') }}"
+                           class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-speedometer2"></i>
+                                <span>Dashboard</span>
+                            </span>
+                        </a>
+                    </div>
+                @endif
 
                 <!-- Presensi Siswa -->
                 <div class="nav-item-container">
@@ -972,22 +974,24 @@
                     </a>
                 </div>
 
-                {{-- ===== TUGAS TAMBAHAN ===== --}}
-                <div class="nav-item-container mt-3">
-                    <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
-                        TUGAS TAMBAHAN
+                @if($isKoordinatorPiketRole)
+                    {{-- ===== TUGAS TAMBAHAN ===== --}}
+                    <div class="nav-item-container mt-3">
+                        <div class="px-2 mb-2 text-uppercase fw-bold text-muted" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                            TUGAS TAMBAHAN
+                        </div>
                     </div>
-                </div>
 
-                <!-- Kelola Piket Shift (Koordinator) -->
-                <div class="nav-item-container">
-                    <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-clipboard-check"></i>
-                            <span>Kelola Piket Shift (Koordinator)</span>
-                        </span>
-                    </a>
-                </div>
+                    <!-- Kelola Piket Shift (Koordinator) -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-clipboard-check"></i>
+                                <span>Kelola Piket Shift (Koordinator)</span>
+                            </span>
+                        </a>
+                    </div>
+                @endif
 
             @elseif($isGuruPiketRole && !$isGuruRole)
                 {{-- ================= NAVIGASI GURU PIKET ================= --}}
@@ -1265,15 +1269,17 @@
                         </div>
                     </div>
 
-                    <!-- Kelola Piket Shift (Koordinator) -->
-                    <div class="nav-item-container">
-                        <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
-                            <span class="btn-left">
-                                <i class="bi bi-clipboard-check"></i>
-                                <span>Kelola Piket Shift (Koordinator)</span>
-                            </span>
-                        </a>
-                    </div>
+                    @if($isKoordinatorPiketRole)
+                        <!-- Kelola Piket Shift (Koordinator) -->
+                        <div class="nav-item-container">
+                            <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
+                                <span class="btn-left">
+                                    <i class="bi bi-clipboard-check"></i>
+                                    <span>Kelola Piket Shift (Koordinator)</span>
+                                </span>
+                            </a>
+                        </div>
+                    @endif
                 @endif
 
             @elseif($isPetugasItRole)
@@ -1358,15 +1364,17 @@
                     </div>
                 </div>
 
-                <!-- Kelola Piket Shift (Koordinator) -->
-                <div class="nav-item-container">
-                    <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
-                        <span class="btn-left">
-                            <i class="bi bi-clipboard-check"></i>
-                            <span>Kelola Piket Shift (Koordinator)</span>
-                        </span>
-                    </a>
-                </div>
+                @if($isKoordinatorPiketRole)
+                    <!-- Kelola Piket Shift (Koordinator) -->
+                    <div class="nav-item-container">
+                        <a href="{{ route('koordinator.piket') }}" class="nav-btn {{ request()->routeIs('koordinator.piket*') ? 'active' : '' }}">
+                            <span class="btn-left">
+                                <i class="bi bi-clipboard-check"></i>
+                                <span>Kelola Piket Shift (Koordinator)</span>
+                            </span>
+                        </a>
+                    </div>
+                @endif
 
             @elseif($isPreviewSiswa)
                 {{-- ================= NAVIGASI SISWA (Preview) ================= --}}
@@ -1412,10 +1420,12 @@
                     // Plotting Jadwal Kelas berada di URL /admin/jadwal*.
                     $isJadwalAdminActive = request()->is('admin/jam-pelajaran*')
                                         || request()->is('admin/jadwal*')
+                                        || request()->is('admin/event-khusus*')
                                         || request()->is('kurikulum/jam-pelajaran*')
                                         || request()->routeIs('admin.jam-pelajaran.*')
                                         || request()->routeIs('admin.jam-pulang.*')
                                         || request()->routeIs('admin.agenda-rutin.*')
+                                        || request()->routeIs('admin.event-khusus.*')
                                         || request()->routeIs('admin.jadwal.*');
 
                     // Dropdown yang terbuka saat halaman pertama dimuat (accordion).
@@ -1563,7 +1573,7 @@
                         </a>
                     </div>
 
-                    <!-- Import Data -->
+                    {{-- <!-- Import Data (Dipindahkan ke masing-masing halaman master data) -->
                     <div class="nav-item-container">
                         <a href="{{ route('import.index') }}" class="nav-btn {{ request()->routeIs('import.*') ? 'active' : '' }}" title="Impor data siswa & jadwal dari berkas Excel">
                             <span class="btn-left">
@@ -1571,7 +1581,7 @@
                                 <span>Import Data</span>
                             </span>
                         </a>
-                    </div>
+                    </div> --}}
 
                     @if($isSuperAdmin)
                         <!-- Data Mata Pelajaran (khusus Super Admin) -->
@@ -1618,6 +1628,17 @@
                                     <li><a href="{{ route('admin.jadwal.index') }}" class="submenu-item-link {{ request()->routeIs('admin.jadwal.*') ? 'active' : '' }}"><i class="bi bi-calendar-range"></i><span>Plotting Jadwal Kelas</span></a></li>
                                 </ul>
                             </div>
+                        </div>
+
+                        <div class="nav-item-container">
+                            <a href="{{ route('admin.event-khusus.index') }}"
+                               class="nav-btn {{ request()->routeIs('admin.event-khusus.*') ? 'active' : '' }}"
+                               title="Kelola agenda dan event khusus sekolah">
+                                <span class="btn-left">
+                                    <i class="bi bi-calendar2-event"></i>
+                                    <span>Agenda &amp; Event Khusus</span>
+                                </span>
+                            </a>
                         </div>
                     @endif
 

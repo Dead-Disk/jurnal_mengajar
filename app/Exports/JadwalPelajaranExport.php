@@ -17,10 +17,13 @@ class JadwalPelajaranExport implements FromCollection, WithHeadings, WithMapping
 
     protected int $isTestingData;
 
-    public function __construct(?int $tahunAjaranId = null, int $isTestingData = 0)
+    protected string $scheduleMode;
+
+    public function __construct(?int $tahunAjaranId = null, int $isTestingData = 0, string $scheduleMode = TahunAjaran::MODE_GLOBAL)
     {
         $this->tahunAjaranId = $tahunAjaranId;
         $this->isTestingData = $isTestingData;
+        $this->scheduleMode = $scheduleMode;
     }
 
     public function collection(): Enumerable
@@ -35,6 +38,7 @@ class JadwalPelajaranExport implements FromCollection, WithHeadings, WithMapping
 
         $jadwals = JadwalPelajaran::withoutGlobalScope(TestingDataScope::class)
             ->where('is_testing_data', $this->isTestingData)
+            ->forScheduleMode($this->scheduleMode)
             ->whereHas('kelas')
             ->when($tahunId, fn ($q) => $q->where('id_tahun_ajaran', $tahunId))
             ->with(['kelas', 'mataPelajaran', 'guru', 'ruangan', 'jamPelajaran'])

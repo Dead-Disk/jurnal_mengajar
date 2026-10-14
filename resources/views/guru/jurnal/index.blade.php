@@ -203,13 +203,20 @@
                                                 <i class="bi bi-arrow-left-short text-primary fs-6"></i>{{ $sub }}
                                             </span>
                                         @endif
+                                        @if($item->is_daring)
+                                            <span class="badge rounded-pill bg-info-subtle text-info-emphasis border border-info-subtle mt-1">DARING</span>
+                                        @endif
                                     </div>
                                 </td>
                                 <td class="whitespace-nowrap py-3 px-3">{{ $item->waktu }}</td>
                                 <td class="whitespace-nowrap py-3 px-3"><span class="badge bg-light text-dark border">{{ $item->kelas }}</span></td>
                                 <td class="whitespace-nowrap py-3 px-3">{{ $item->mapel }}</td>
                                 <td class="py-3 px-3">
-                                    @if($item->is_pulang)
+                                    @if($item->is_non_aktif)
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold">
+                                            <i class="bi bi-calendar-x"></i> KBM Libur / Non-Aktif
+                                        </span>
+                                    @elseif($item->is_pulang)
                                         <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
                                               style="font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;">
                                             🛑 Pulang / Selesai KBM
@@ -262,11 +269,15 @@
                                             </a>
 
                                             <!-- Tombol 2: Edit Jurnal (Hanya Tampil Jika Tanggal Hari Ini) -->
-                                            @if($item->is_today)
+                                            @if($item->is_today && !$item->is_non_aktif)
                                                 <a href="{{ route('guru.jurnal.edit', $item->jurnal->id) }}"
                                                    class="btn btn-warning btn-sm rounded-3 px-3 fw-semibold text-dark shadow-sm">
                                                     <i class="bi bi-pencil-square me-1"></i> Edit Jurnal
                                                 </a>
+                                            @elseif($item->is_non_aktif)
+                                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-3 py-2">
+                                                    KBM Non-Aktif
+                                                </span>
                                             @endif
                                         </div>
                                     @elseif($item->can_fill)
@@ -284,7 +295,11 @@
                                                 class="btn btn-secondary btn-sm rounded-3 px-3 fw-semibold"
                                                 disabled
                                                 title="{{ $item->lock_reason }}">
-                                            <i class="bi bi-lock-fill me-1"></i> Isi Jurnal
+                                            @if($item->is_non_aktif)
+                                                <i class="bi bi-calendar-x me-1"></i> KBM Non-Aktif
+                                            @else
+                                                <i class="bi bi-lock-fill me-1"></i> Isi Jurnal
+                                            @endif
                                         </button>
                                         </div>
                                         @if($item->lock_reason)
@@ -329,9 +344,16 @@
                                             <i class="bi bi-arrow-left-short text-primary fs-6"></i>{{ $sub }}
                                         </span>
                                     @endif
+                                    @if($item->is_daring)
+                                        <span class="badge rounded-pill bg-info-subtle text-info-emphasis border border-info-subtle mt-1">DARING</span>
+                                    @endif
                                 </div>
                                 @php $st = $item->status_info ?? null; @endphp
-                                @if($item->is_pulang)
+                                @if($item->is_non_aktif)
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold">
+                                        <i class="bi bi-calendar-x"></i> KBM Libur / Non-Aktif
+                                    </span>
+                                @elseif($item->is_pulang)
                                     <span class="badge d-inline-flex align-items-center gap-1 px-2.5 py-1 rounded-pill fw-semibold"
                                           style="font-size: 0.78rem; background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;">
                                         🛑 Pulang / Selesai KBM
@@ -378,13 +400,18 @@
                                        class="btn btn-outline-secondary w-100 rounded-3 fw-semibold shadow-sm">
                                         <i class="bi bi-eye me-1"></i> Lihat Detail
                                     </a>
-                                    @if($item->is_today)
+                                    @if($item->is_today && !$item->is_non_aktif)
                                         <a href="{{ route('guru.jurnal.edit', $item->jurnal->id) }}"
                                            class="btn btn-warning w-100 rounded-3 fw-semibold text-dark shadow-sm">
                                             <i class="bi bi-pencil-square me-1"></i> Edit Jurnal
                                         </a>
                                     @endif
                                 </div>
+                                @if($item->is_non_aktif)
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-3 py-2 mt-2">
+                                        KBM Non-Aktif
+                                    </span>
+                                @endif
                             @elseif($item->can_fill)
                                 <a href="{{ route('guru.jurnal.form', $item->jadwal->id) }}"
                                    class="btn btn-primary w-100 rounded-3 fw-semibold">
@@ -392,7 +419,11 @@
                                 </a>
                             @else
                                 <button type="button" class="btn btn-secondary w-100 rounded-3 fw-semibold" disabled>
-                                    <i class="bi bi-lock-fill me-1"></i> Isi Jurnal
+                                    @if($item->is_non_aktif)
+                                        <i class="bi bi-calendar-x me-1"></i> KBM Non-Aktif
+                                    @else
+                                        <i class="bi bi-lock-fill me-1"></i> Isi Jurnal
+                                    @endif
                                 </button>
                                 @if($item->lock_reason)
                                     <p class="small text-muted text-center mb-0 mt-2">{{ $item->lock_reason }}</p>

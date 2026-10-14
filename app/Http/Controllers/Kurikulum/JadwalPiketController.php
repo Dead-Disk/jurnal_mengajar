@@ -42,6 +42,22 @@ class JadwalPiketController extends Controller
         abort_unless($isAllowed, 403, 'Akses ditolak. Anda tidak memiliki izin untuk mengubah Jadwal Piket.');
     }
 
+    protected function defaultHari(array $hariList): string
+    {
+        $hariIni = match (Carbon::now()->dayOfWeekIso) {
+            1 => 'Senin',
+            2 => 'Selasa',
+            3 => 'Rabu',
+            4 => 'Kamis',
+            5 => 'Jumat',
+            default => null,
+        };
+
+        return $hariIni && in_array($hariIni, $hariList, true)
+            ? $hariIni
+            : ($hariList[0] ?? 'Senin');
+    }
+
     /**
      * Menampilkan daftar Jadwal Piket Guru per hari
      */
@@ -51,6 +67,7 @@ class JadwalPiketController extends Controller
 
         $hariList = JadwalPiket::HARI_LIST;
         $mingguKe = $this->mingguKe($request);
+        $defaultActiveHari = $this->defaultHari($hariList);
 
         $allJadwal = JadwalPiket::with(['user', 'shift'])
             ->where('minggu_ke', $mingguKe)
@@ -124,7 +141,7 @@ class JadwalPiketController extends Controller
 
         return view('kurikulum.jadwal_piket.index', compact(
             'hariList', 'jadwalByHari', 'guruList', 'allJadwal', 'selectedByHari', 'canManage',
-            'mingguKe', 'shifts', 'activeShifts', 'shiftGroupsByHari'
+            'mingguKe', 'shifts', 'activeShifts', 'shiftGroupsByHari', 'defaultActiveHari'
         ));
     }
 
@@ -137,9 +154,10 @@ class JadwalPiketController extends Controller
 
         $hariList = JadwalPiket::HARI_LIST;
         $mingguKe = $this->mingguKe($request);
-        $selectedHari = $request->get('hari', 'Senin');
-        if (! in_array($selectedHari, $hariList)) {
-            $selectedHari = 'Senin';
+        $defaultHari = $this->defaultHari($hariList);
+        $selectedHari = $request->query('hari', $defaultHari);
+        if (! in_array($selectedHari, $hariList, true)) {
+            $selectedHari = $defaultHari;
         }
 
         $guruList = User::where('role', 'guru')

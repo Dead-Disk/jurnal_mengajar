@@ -87,7 +87,8 @@
                 <i class="bi bi-gear"></i>
                 <span>Pengaturan Shift & Kuota</span>
             </button>
-            <a href="{{ route('kurikulum.jadwal-piket.create', ['minggu_ke' => $mingguKe]) }}"
+            <a id="add-piket-link"
+               href="{{ route('kurikulum.jadwal-piket.create', ['minggu_ke' => $mingguKe, 'hari' => $defaultActiveHari]) }}"
                class="btn btn-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center gap-2 shadow-sm"
                style="font-size: 0.875rem;">
                 <i class="bi bi-person-plus-fill"></i>
@@ -156,8 +157,6 @@
             'Friday'    => 'Jumat',
         ];
         $hariIni = $mapHariIni[\Carbon\Carbon::now()->format('l')] ?? '';
-        $hariArray = is_array($hariList) ? $hariList : $hariList->toArray();
-        $defaultActiveHari = in_array($hariIni, $hariArray) ? $hariIni : ($hariArray[0] ?? 'Senin');
     @endphp
 
     {{-- Sub-Tab Nav Pills Hari (Senin - Jumat) --}}
@@ -173,6 +172,7 @@
                 <li class="nav-item flex-grow-1" role="presentation">
                     <button class="nav-link w-100 rounded-3 py-2.5 px-3 font-semibold d-flex align-items-center justify-content-center gap-1.5 piket-day-pill {{ $isActive ? 'active' : '' }}"
                             id="tab-{{ $slugHari }}"
+                            data-hari="{{ $hari }}"
                             data-bs-toggle="pill"
                             data-bs-target="#content-{{ $slugHari }}"
                             type="button"
@@ -576,6 +576,19 @@
 
 @push('scripts')
 <script>
+    var addPiketLink = document.getElementById('add-piket-link');
+    var piketHariTab = document.getElementById('piketHariTab');
+    if (addPiketLink && piketHariTab) {
+        piketHariTab.addEventListener('shown.bs.tab', function (event) {
+            var activeHari = event.target.dataset.hari;
+            if (activeHari) {
+                var url = new URL(addPiketLink.href, window.location.origin);
+                url.searchParams.set('hari', activeHari);
+                addPiketLink.href = url.toString();
+            }
+        });
+    }
+
     // Auto-save toggle status active shift via instant AJAX & form submit handler
     function initializeShiftSettings() {
         var pendingShiftToggleRequests = {};

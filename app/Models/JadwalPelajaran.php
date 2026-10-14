@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Models\Concerns\HasTestingData;
 use App\Models\Concerns\TestingDataContextAware;
 use App\Models\Scopes\ActiveTahunAjaranScope;
+use App\Models\Scopes\TestingDataScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,11 +29,44 @@ class JadwalPelajaran extends Model implements TestingDataContextAware
         'id_guru',
         'id_ruangan',
         'id_tahun_ajaran',
+        'mode_jadwal',
     ];
 
     protected $casts = [
         'is_testing_data' => 'boolean',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (JadwalPelajaran $jadwal): void {
+            if ($jadwal->mode_jadwal !== null) {
+                return;
+            }
+
+            $tahunAjaran = $jadwal->id_tahun_ajaran
+                ? TahunAjaran::withoutGlobalScope(TestingDataScope::class)
+                    ->find($jadwal->id_tahun_ajaran)
+                : null;
+
+            if ($tahunAjaran) {
+                $jadwal->mode_jadwal = $tahunAjaran->effective_schedule_mode;
+
+                return;
+            }
+
+            $shiftId = JamPelajaran::withoutGlobalScope(ActiveTahunAjaranScope::class)
+                ->whereKey($jadwal->id_jam)
+                ->value('shift_id');
+            $jadwal->mode_jadwal = $shiftId === null
+                ? AppSetting::scheduleMode()
+                : TahunAjaran::MODE_SHIFT;
+        });
+    }
+
+    public function scopeForScheduleMode(Builder $query, string $mode): Builder
+    {
+        return $query->where('mode_jadwal', $mode);
+    }
 
     /**
      * Relasi ke Ruangan

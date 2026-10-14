@@ -135,7 +135,7 @@ class BulkResetAccessTest extends TestCase
 
         $this->actingAs($this->superAdmin())
             ->post(route('import.reset-siswa'), ['reset_confirm' => 'HAPUS DATA SISWA'])
-            ->assertRedirect(route('import.index'))
+            ->assertRedirect(route('siswa.index'))
             ->assertSessionHas('success');
 
         $this->assertDatabaseCount('siswa', 0);
@@ -190,7 +190,7 @@ class BulkResetAccessTest extends TestCase
                 'tahun_ajaran_id' => $targetTahunAjaran->id,
                 'reset_confirm' => 'HAPUS DATA JADWAL',
             ])
-            ->assertRedirect(route('import.index'))
+            ->assertRedirect(route('admin.jadwal.index'))
             ->assertSessionHas('success');
 
         $this->assertDatabaseMissing('jadwal_pelajaran', [

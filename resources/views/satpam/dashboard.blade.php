@@ -320,8 +320,11 @@
         const select = document.getElementById('selectSiswaTerlambat');
         if (!filter || !select) return;
 
-        // Simpan opsi siswa dari server SEKALI (sebelum Choices menyembunyikan <select>).
-        const siswaOptions = Array.from(select.options).filter((opt) => opt.value);
+        const siswaOptionsSemuaKelas = Array.from(select.options)
+            .filter((option) => option.value)
+            .map((option) => ({ value: option.value, label: option.text }));
+        const placeholderAwal = '-- Pilih Siswa --';
+        const endpointSiswaByKelas = @json(route('satpam.siswa-by-kelas'));
 
         const CHOICES_CONFIG = {
             searchEnabled: true,
@@ -337,24 +340,65 @@
 
         let siswaChoices = new Choices(select, CHOICES_CONFIG);
 
-        function applyFilter() {
-            const kelasId = filter.value;
-
-            // Bangun ulang <select> asli dengan opsi hasil filter, lalu init ulang Choices.
+        function renderSiswaOptions(options, placeholder) {
             siswaChoices.destroy();
             select.innerHTML = '';
-            select.appendChild(new Option('-- Pilih Siswa --', '', true, true));
+            select.appendChild(new Option(placeholder, '', true, true));
 
-            siswaOptions.forEach(function (opt) {
-                if (kelasId === '' || opt.dataset.kelas === kelasId) {
-                    select.appendChild(new Option(opt.text, opt.value));
-                }
+            options.forEach(function (option) {
+                select.appendChild(new Option(option.label, option.value));
             });
 
             siswaChoices = new Choices(select, CHOICES_CONFIG);
         }
 
-        filter.addEventListener('change', applyFilter);
+        filter.addEventListener('change', function () {
+            const idKelas = this.value;
+
+            if (!idKelas) {
+                renderSiswaOptions(siswaOptionsSemuaKelas, placeholderAwal);
+                return;
+            }
+
+            renderSiswaOptions([], 'Memuat data siswa...');
+            const params = new URLSearchParams({ id_kelas: idKelas });
+
+            fetch(`${endpointSiswaByKelas}?${params}`, {
+                headers: { Accept: 'application/json' },
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error(`Gagal memuat siswa (HTTP ${response.status})`);
+                    }
+
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (filter.value !== idKelas) return;
+
+                    if (!Array.isArray(data)) {
+                        throw new Error('Respons daftar siswa tidak valid');
+                    }
+
+                    const options = data.map(function (siswa) {
+                        const nis = siswa.nis ? `NIS ${siswa.nis}` : 'Tanpa NIS';
+                        const nisn = siswa.nisn ? ` · NISN ${siswa.nisn}` : '';
+
+                        return {
+                            value: String(siswa.id),
+                            label: `${siswa.nama} — ${nis}${nisn}`,
+                        };
+                    });
+
+                    renderSiswaOptions(options, options.length ? placeholderAwal : 'Tidak ada siswa di kelas ini');
+                })
+                .catch(function (error) {
+                    if (filter.value !== idKelas) return;
+
+                    console.error(error);
+                    renderSiswaOptions([], 'Gagal memuat siswa. Silakan coba lagi.');
+                });
+        });
     });
 </script>
 @endpush

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\JadwalPelajaran;
+use App\Models\JamPulang;
 use App\Models\Jurnal;
 use App\Models\User;
 use Carbon\Carbon;
@@ -52,7 +53,7 @@ class JurnalMengajarController extends Controller
             'mapel',
             'jamPelajaran',
             'tahunAjaran',
-        ])->get();
+        ])->get()->reject(fn (JadwalPelajaran $jadwal) => $this->isPklSchedule($jadwal))->values();
 
         $gurus = User::orderBy('nama')->get();
 
@@ -89,6 +90,7 @@ class JurnalMengajarController extends Controller
         ]);
 
         $targetJadwal = JadwalPelajaran::with(['kelas', 'guru', 'jamPelajaran'])->findOrFail($validated['id_jadwal']);
+        abort_if($this->isPklSchedule($targetJadwal), 422, 'Slot PKL / DU-DI tidak menerima jurnal KBM reguler.');
 
         $fotoKegiatanPath = null;
         if ($request->hasFile('foto_kegiatan')) {
@@ -155,7 +157,8 @@ class JurnalMengajarController extends Controller
             'mapel',
             'jamPelajaran',
             'tahunAjaran',
-        ])->get();
+        ])->get()->reject(fn (JadwalPelajaran $jadwal) => $this->isPklSchedule($jadwal))->values();
+        abort_if($this->isPklSchedule($jurnal->jadwal), 422, 'Jurnal pada slot PKL / DU-DI tidak dapat diedit sebagai jurnal KBM reguler.');
 
         $gurus = User::orderBy('nama')->get();
 
@@ -168,6 +171,7 @@ class JurnalMengajarController extends Controller
     public function update(Request $request, $id)
     {
         $jurnal = Jurnal::findOrFail($id);
+        abort_if($this->isPklSchedule($jurnal->jadwal), 422, 'Jurnal pada slot PKL / DU-DI tidak dapat diperbarui sebagai jurnal KBM reguler.');
 
         // Guard: jurnal data testing hanya dapat diubah oleh IT/QA.
         $this->authorizeTestingMutation($jurnal);
@@ -188,6 +192,9 @@ class JurnalMengajarController extends Controller
             'status_kehadiran' => 'required|in:Hadir,Izin,Sakit,Disposisi',
             'id_guru_pengganti' => 'nullable|exists:users,id',
         ]);
+
+        $targetJadwal = JadwalPelajaran::with(['kelas', 'jamPelajaran'])->findOrFail($validated['id_jadwal']);
+        abort_if($this->isPklSchedule($targetJadwal), 422, 'Slot PKL / DU-DI tidak menerima jurnal KBM reguler.');
 
         if ($request->hasFile('foto_kegiatan')) {
             // Hapus foto lama dari private / public disk jika ada
@@ -235,6 +242,7 @@ class JurnalMengajarController extends Controller
         }
 
         $jurnal = Jurnal::findOrFail($id);
+        abort_if($this->isPklSchedule($jurnal->jadwal), 422, 'Slot PKL / DU-DI tidak menerima pencatatan kehadiran guru reguler.');
 
         // Guard: jurnal data testing hanya dapat diubah oleh IT/QA.
         $this->authorizeTestingMutation($jurnal);
@@ -324,5 +332,20 @@ class JurnalMengajarController extends Controller
         $jurnal->delete();
 
         return redirect()->route('jurnal.index')->with('success', 'Jurnal mengajar berhasil dihapus!');
+    }
+
+    private function isPklSchedule(?JadwalPelajaran $jadwal): bool
+    {
+        if (! $jadwal) {
+            return false;
+        }
+
+        $jadwal->loadMissing(['kelas', 'jamPelajaran']);
+
+        return JamPulang::isPklFor(
+            $jadwal->kelas?->tingkat,
+            $jadwal->hari === 'Jumat' ? 'Jumat' : 'Senin-Kamis',
+            (int) ($jadwal->jamPelajaran?->shift_id ?? 0)
+        );
     }
 }

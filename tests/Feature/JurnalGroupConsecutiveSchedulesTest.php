@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\JadwalPelajaran;
+use App\Models\EventKhusus;
 use App\Models\JamPelajaran;
 use App\Models\Jurnal;
 use App\Models\Kelas;
@@ -10,6 +11,7 @@ use App\Models\MataPelajaran;
 use App\Models\Siswa;
 use App\Models\TahunAjaran;
 use App\Models\User;
+use App\Http\Controllers\Guru\JurnalController;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -19,9 +21,52 @@ class JurnalGroupConsecutiveSchedulesTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_daring_journal_status_is_never_marked_late(): void
+    {
+        Carbon::setTestNow('2026-09-07 11:00:00');
+
+        $unfilledStatus = Jurnal::hitungStatusPengisian(null, '2026-09-07', '09:15:00', true);
+        $filledStatus = Jurnal::hitungStatusPengisian(
+            new Jurnal(['tanggal' => '2026-09-07', 'waktu_isi' => '2026-09-07 10:00:00']),
+            '2026-09-07',
+            '09:15:00',
+            true
+        );
+
+        $this->assertSame('belum_terisi', $unfilledStatus['status']);
+        $this->assertSame('sudah_terisi', $filledStatus['status']);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_non_active_event_match_respects_class_scope_and_date_range(): void
+    {
+        EventKhusus::create([
+            'nama_event' => 'Classmeeting XI',
+            'tanggal_mulai' => '2026-09-07',
+            'tanggal_selesai' => '2026-09-08',
+            'tipe_dampak' => 'non_aktif',
+            'scope' => 'kelas_tertentu',
+            'target_kelas' => [41],
+        ]);
+
+        $controller = new class extends JurnalController
+        {
+            public function hasNonActiveEvent(int $classId, string $date): bool
+            {
+                return $this->eventNonAktifAktif($classId, $date);
+            }
+        };
+
+        $this->assertTrue($controller->hasNonActiveEvent(41, '2026-09-07'));
+        $this->assertTrue($controller->hasNonActiveEvent(41, '2026-09-08'));
+        $this->assertFalse($controller->hasNonActiveEvent(42, '2026-09-07'));
+        $this->assertFalse($controller->hasNonActiveEvent(41, '2026-09-09'));
+    }
+
     public function test_consecutive_schedules_are_grouped_and_stored_together(): void
     {
-        Carbon::setTestNow('2026-09-07 08:00:00');
+        Carbon::setTestNow('2026-09-07 10:00:00');
         $hari = 'Senin';
 
         $tahun = TahunAjaran::create([
@@ -42,6 +87,14 @@ class JurnalGroupConsecutiveSchedulesTest extends TestCase
         $kelas = Kelas::create([
             'nama_kelas' => 'X-IPA-1',
             'tingkat' => 'X',
+        ]);
+
+        EventKhusus::create([
+            'nama_event' => 'Pembelajaran Daring',
+            'tanggal_mulai' => '2026-09-07',
+            'tanggal_selesai' => '2026-09-07',
+            'tipe_dampak' => 'daring',
+            'scope' => 'semua_kelas',
         ]);
 
         $mapel = MataPelajaran::create([
@@ -114,6 +167,13 @@ class JurnalGroupConsecutiveSchedulesTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('Jam 8 - 10');
         $response->assertSee('07.00 - 09.15');
+        $response->assertSee('DARING');
+        $response->assertDontSee('Belum Terisi (Terlambat)');
+
+        $formResponse = $this->actingAs($guru)->get(route('guru.jurnal.form', $jadwal8->id));
+        $formResponse->assertStatus(200);
+        $formResponse->assertSee('KBM Daring Aktif');
+        $formResponse->assertSee('Opsional saat Daring');
 
         // 2. Submit form for primary schedule (jadwal8)
         $postData = [

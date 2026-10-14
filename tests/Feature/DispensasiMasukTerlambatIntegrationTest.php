@@ -8,6 +8,7 @@ use App\Models\DispensasiSiswa;
 use App\Models\JadwalPiket;
 use App\Models\JamPelajaran;
 use App\Models\Kelas;
+use App\Models\PenerimaTerlambat;
 use App\Models\Siswa;
 use App\Models\User;
 use Carbon\Carbon;
@@ -18,6 +19,8 @@ use Tests\TestCase;
 class DispensasiMasukTerlambatIntegrationTest extends TestCase
 {
     use RefreshDatabase;
+
+    private ?User $piketAktif = null;
 
     protected function setUp(): void
     {
@@ -48,6 +51,7 @@ class DispensasiMasukTerlambatIntegrationTest extends TestCase
     {
         $piket = $this->makeUser('guru');
         JadwalPiket::create(['hari' => 'Senin', 'user_id' => $piket->id]);
+        $this->piketAktif = $piket;
 
         return $piket;
     }
@@ -79,13 +83,23 @@ class DispensasiMasukTerlambatIntegrationTest extends TestCase
 
     protected function buatCatatanTerlambat(Siswa $siswa, array $extra = []): CatatanTerlambat
     {
-        return CatatanTerlambat::create(array_merge([
+        $catatan = CatatanTerlambat::create(array_merge([
             'id_siswa' => $siswa->id,
             'tanggal' => '2026-09-14',
             'jam_masuk' => '07:15',
             'keterangan' => 'Terlambat',
             'id_satpam' => $this->makeSatpam()->id,
         ], $extra));
+
+        if ($this->piketAktif) {
+            PenerimaTerlambat::create([
+                'catatan_terlambat_id' => $catatan->id,
+                'user_id' => $this->piketAktif->id,
+                'peran' => PenerimaTerlambat::PERAN_GURU_PIKET,
+            ]);
+        }
+
+        return $catatan;
     }
 
     // ------------------------------------------------------------------
@@ -164,6 +178,28 @@ class DispensasiMasukTerlambatIntegrationTest extends TestCase
             ->getJson(route('piket.dispensasi.terlambat-hari-ini'))
             ->assertOk()
             ->assertJsonPath('data.0.saran_jp', 2);
+    }
+
+    public function test_halaman_buat_dispen_menampilkan_kartu_hanya_untuk_catatan_penerima_piket_ini(): void
+    {
+        $piket = $this->makePiket();
+        [$kelas, $siswa] = $this->makeKelasDanSiswa();
+        $catatanPiketIni = $this->buatCatatanTerlambat($siswa);
+
+        $this->makePiket();
+        $catatanPiketLain = $this->buatCatatanTerlambat($siswa, ['jam_masuk' => '07:30']);
+
+        $this->actingAs($piket)
+            ->get(route('piket.dispensasi.create'))
+            ->assertOk()
+            ->assertSee('Siswa Terlambat Dicatat Satpam Hari Ini')
+            ->assertSee('Pilih / Proses Dispensasi')
+            ->assertSee('data-catatan-id="'.$catatanPiketIni->id.'"', false)
+            ->assertSee('data-id-kelas="'.$kelas->id.'"', false)
+            ->assertSee('data-id-siswa="'.$siswa->id.'"', false)
+            ->assertSee('data-nama-siswa="'.$siswa->nama.'"', false)
+            ->assertSee('data-nis="'.$siswa->nis.'"', false)
+            ->assertDontSee('data-catatan-id="'.$catatanPiketLain->id.'"', false);
     }
 
     // ------------------------------------------------------------------

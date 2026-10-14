@@ -102,4 +102,5 @@ class AppSetting extends Model
 
         Cache::put(self::SCHEDULE_MODE_CACHE_KEY, $mode, 60);
     }
+
 }

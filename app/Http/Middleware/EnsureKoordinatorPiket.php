@@ -11,10 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Koordinator Piket BUKAN role tetap di database, melainkan tugas dinamis yang
  * diturunkan dari jadwal piket (koordinator_pagi_user_id / koordinator_siang_user_id)
- * pada hari berjalan. Middleware ini menyaring:
- *  - Petugas IT / QA Tester: diizinkan (peninjau / penguji, pola guard lain).
- *  - Guru/Wali Kelas yang hari ini terdaftar sebagai koordinator (Pagi/Siang).
- *  - Selain itu ditolak 403.
+ * pada hari berjalan. Hanya pengguna yang tercatat sebagai koordinator hari
+ * ini yang dapat mengakses portal.
  */
 class EnsureKoordinatorPiket
 {
@@ -26,13 +24,8 @@ class EnsureKoordinatorPiket
             abort(401, 'Silakan login terlebih dahulu.');
         }
 
-        // Petugas IT / QA Tester atau mode Switch Role Koordinator Piket.
-        if ($user->isPetugasIt() || ($user->hasActiveRole() && in_array($user->activeRole(), ['koordinator_piket', 'waka_piket'], true))) {
-            return $next($request);
-        }
-
         abort_unless(
-            $user->koordinatorShiftHariIni() !== [],
+            $user->isKoordinatorToday(),
             403,
             'Akses ditolak. Anda tidak bertugas sebagai Koordinator Piket hari ini.'
         );

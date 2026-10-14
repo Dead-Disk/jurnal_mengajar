@@ -244,6 +244,7 @@ class AgendaRutinShiftScopeTest extends TestCase
             'nama_agenda' => 'Upacara Bendera',
             'is_active' => 1,
             'shift_id' => $shift->id,
+            'tahun_ajaran_id' => $this->tahun->id,
         ]);
         $this->assertDatabaseHas('agenda_rutin', [
             'hari' => 'Jumat',
@@ -251,6 +252,7 @@ class AgendaRutinShiftScopeTest extends TestCase
             'nama_agenda' => 'Pembiasaan Jumat',
             'is_active' => 0,
             'shift_id' => $shift->id,
+            'tahun_ajaran_id' => $this->tahun->id,
         ]);
 
         // Isolasi: tidak ada record Global (shift 0) yang ikut tercipta.
@@ -330,6 +332,7 @@ class AgendaRutinShiftScopeTest extends TestCase
             'nama_agenda' => 'Upacara Bendera',
             'is_active' => true,
             'shift_id' => $shift1->id,
+            'tahun_ajaran_id' => $this->tahun->id,
         ]);
 
         // ---- Tab Shift 1: status Aktif, Jam Ke-1 terpilih, badge hint shift ----
@@ -389,5 +392,85 @@ class AgendaRutinShiftScopeTest extends TestCase
         $this->assertDatabaseMissing('agenda_rutin', ['hari' => 'Jumat', 'jam_ke' => 2, 'shift_id' => 0]);
         $this->assertDatabaseMissing('agenda_rutin', ['hari' => 'Senin', 'jam_ke' => 1, 'shift_id' => $shift2->id]);
         $this->assertDatabaseMissing('agenda_rutin', ['hari' => 'Jumat', 'jam_ke' => 2, 'shift_id' => $shift2->id]);
+    }
+
+    public function test_agenda_settings_are_separated_by_school_year(): void
+    {
+        $archivedYear = TahunAjaran::create([
+            'tahun_ajaran' => '2024/2025',
+            'semester' => 'Genap',
+            'is_active' => false,
+        ]);
+
+        AgendaRutin::create([
+            'hari' => 'Senin',
+            'jam_ke' => 1,
+            'nama_agenda' => 'Agenda Tahun Lama',
+            'is_active' => true,
+            'shift_id' => 0,
+            'tahun_ajaran_id' => $archivedYear->id,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.agenda-rutin.upsert'), [
+                'hari' => 'Senin',
+                'jam_ke' => 1,
+                'is_active' => 1,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('agenda_rutin', [
+            'hari' => 'Senin',
+            'jam_ke' => 1,
+            'tahun_ajaran_id' => $this->tahun->id,
+            'nama_agenda' => 'Upacara Bendera',
+        ]);
+        $this->assertDatabaseHas('agenda_rutin', [
+            'hari' => 'Senin',
+            'jam_ke' => 1,
+            'tahun_ajaran_id' => $archivedYear->id,
+            'nama_agenda' => 'Agenda Tahun Lama',
+        ]);
+    }
+
+    public function test_changing_agenda_jam_updates_one_record_and_master_form_shows_saved_value(): void
+    {
+        $this->makeSlot(null, 'Senin', '07:00:00', '07:40:00', 1);
+        $this->makeSlot(null, 'Senin', '13:00:00', '13:40:00', 8);
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.agenda-rutin.upsert'), [
+                'hari' => 'Senin',
+                'jam_ke' => 1,
+                'is_active' => 1,
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($this->admin)
+            ->post(route('admin.agenda-rutin.upsert'), [
+                'hari' => 'Senin',
+                'jam_ke' => 8,
+                'is_active' => 1,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseCount('agenda_rutin', 1);
+        $this->assertDatabaseHas('agenda_rutin', [
+            'hari' => 'Senin',
+            'jam_ke' => 8,
+            'is_active' => 1,
+            'shift_id' => 0,
+            'tahun_ajaran_id' => $this->tahun->id,
+        ]);
+
+        $html = $this->actingAs($this->admin)
+            ->get(route('admin.jam-pelajaran.index', ['tab' => 'Senin-Kamis']))
+            ->assertOk()
+            ->getContent();
+
+        $seninBlock = $this->selectBlock($html, 'jamKeSenin');
+        $this->assertMatchesRegularExpression('/<option value="8"[^>]*selected[^>]*>/', $seninBlock);
+        $this->assertStringContainsString('● Aktif (Terkunci Jam Ke-8)', $html);
     }
 }

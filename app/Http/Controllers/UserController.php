@@ -16,7 +16,6 @@ class UserController extends Controller
 {
     public const SUB_ROLES = [
         'super_admin',
-        'admin',
         'petugas_tu',
         'waka_kurikulum',
         'waka_sdm',
@@ -29,7 +28,6 @@ class UserController extends Controller
 
     public const SUB_ROLE_LABELS = [
         'super_admin' => 'Super Admin',
-        'admin' => 'Admin',
         'petugas_tu' => 'Petugas TU',
         'waka_kurikulum' => 'Waka Kurikulum',
         'waka_sdm' => 'Waka SDM',
@@ -64,7 +62,7 @@ class UserController extends Controller
     /**
      * Daftar sub-role yang boleh DIPILIH pada form Tambah/Edit.
      *
-     * Opsi 'super_admin' / 'admin' (akun istimewa) disembunyikan dari aktor
+     * Opsi 'super_admin' (akun istimewa) disembunyikan dari aktor
      * non-privilege-manager (Petugas TU biasa) — hanya Super Admin / IT yang
      * menampilkan dan memilihnya.
      */
@@ -81,7 +79,7 @@ class UserController extends Controller
 
     /**
      * Kebijakan "Hidden Super Admin": hanya privilege manager yang boleh
-     * MEMBERIKAN hak akses 'super_admin' / 'admin'. Petugas TU yang mencoba
+     * MEMBERIKAN hak akses 'super_admin'. Petugas TU yang mencoba
      * mengirim sub_role istimewa ditolak dengan AuthorizationException (403).
      */
     protected function authorizePrivilegedSubRole(string $subRole): void
@@ -93,12 +91,12 @@ class UserController extends Controller
         abort_if(
             ! $this->isPrivilegedManager(),
             403,
-            'Hak akses Super Admin / Admin hanya dapat diberikan oleh Super Admin.'
+            'Hak akses Super Admin hanya dapat diberikan oleh Super Admin.'
         );
     }
 
     /**
-     * Akun istimewa (role/sub_role 'super_admin' atau sub_role 'admin') TIDAK
+     * Akun istimewa (role/sub_role 'super_admin') TIDAK
      * boleh diubah, dihapus, di-toggle, atau di-suspend oleh aktor non-
      * privilege-manager — meskipun akun tersebut terlihat di daftar user.
      */
@@ -111,7 +109,7 @@ class UserController extends Controller
         abort_if(
             ! $this->isPrivilegedManager(),
             403,
-            'Akun Super Admin / Admin dilindungi dan hanya dapat dikelola oleh Super Admin.'
+            'Akun Super Admin dilindungi dan hanya dapat dikelola oleh Super Admin.'
         );
     }
 
@@ -260,7 +258,7 @@ class UserController extends Controller
 
         $validated = $this->validateUser($request, null, true);
         // Kebijakan Hidden Super Admin: non-privilege-manager dilarang
-        // membuat akun dengan sub_role 'super_admin' / 'admin'.
+        // membuat akun dengan sub_role 'super_admin'.
         $this->authorizePrivilegedSubRole($validated['sub_role']);
         $kodeAktivasi = ($validated['kode_aktivasi'] ?? null) ?: $this->generateActivationCode();
 
@@ -300,7 +298,7 @@ class UserController extends Controller
 
         $validated = $this->validateUser($request, $user->id);
         // Kebijakan Hidden Super Admin: non-privilege-manager dilarang mengubah
-        // sub_role menjadi 'super_admin' / 'admin'.
+        // sub_role menjadi 'super_admin'.
         $this->authorizePrivilegedSubRole($validated['sub_role']);
 
         $kodeAktivasi = $validated['kode_aktivasi'] ?? $user->kode_aktivasi;
@@ -406,7 +404,7 @@ class UserController extends Controller
      * Sembunyikan akun yang tidak boleh dilihat Petugas TU dari daftar/admin:
      *  - Akun internal IT / System (role 'petugas_it' / 'qa_tester',
      *    mis. 'petugas.it' / Rian Hidayat).
-     *  - Akun istimewa ber-role/sub_role 'super_admin' atau sub_role 'admin'
+     *  - Akun istimewa ber-role/sub_role 'super_admin'
      *    (Kebijakan Hidden Super Admin) — hanya Super Admin / IT yang melihatnya.
      *
      * Privilege manager (Petugas IT/QA, Super Admin literal, Admin Utama
@@ -424,7 +422,7 @@ class UserController extends Controller
         $query->where(function ($q) {
             $q->whereNotIn('role', [User::ROLE_PETUGAS_IT, User::ROLE_QA_TESTER, User::ROLE_SUPER_ADMIN])
                 // sub_role NULL (akun legacy tanpa sub-role) TETAP tampil;
-                // hanya nilai istimewa 'super_admin' / 'admin' yang disembunyikan.
+                // hanya nilai istimewa 'super_admin' yang disembunyikan.
                 ->where(function ($subQ) {
                     $subQ->whereNull('sub_role')
                         ->orWhereNotIn('sub_role', User::PROTECTED_SUB_ROLES);
@@ -495,7 +493,7 @@ class UserController extends Controller
      * dengan kebijakan visibilitas findNonGuruUser / applyInternalAccountVisibility:
      *  - User ber-role guru tidak dikelola dari panel TU → 404.
      *  - Akun internal IT / System tidak terlihat oleh Petugas TU → 404.
-     *  - Akun istimewa (role/sub_role 'super_admin' atau sub_role 'admin')
+     *  - Akun istimewa (role/sub_role 'super_admin')
      *    tidak terlihat oleh user non-superadmin → 404.
      */
     protected function assertSuspendTargetVisible(User $user): void
@@ -504,7 +502,7 @@ class UserController extends Controller
 
         $actor = Auth::user();
 
-        // Privilege manager melihat semua akun (termasuk Super Admin / Admin).
+        // Privilege manager melihat semua akun (termasuk Super Admin).
         if ($actor instanceof User && $actor->isPrivilegedUserManager()) {
             return;
         }

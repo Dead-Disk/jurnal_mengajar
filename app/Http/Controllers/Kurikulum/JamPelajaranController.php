@@ -146,9 +146,10 @@ class JamPelajaranController extends Controller
         // konfigurasi sendiri sehingga mengaktifkan Upacara di Shift 1 tidak
         // akan tampil Aktif saat membuka tab Shift 2 (state default: Non-Aktif).
         $agendaShiftId = (int) ($selectedShiftId ?? 0);
-        $agendaSenin = AgendaRutin::where('hari', 'Senin')->ofShift($agendaShiftId)->first();
-        $agendaJumat = AgendaRutin::where('hari', 'Jumat')->ofShift($agendaShiftId)->first();
-        $agendaRutin = $agendaSenin ?? AgendaRutin::ofShift($agendaShiftId)->first();
+        $agendaQuery = AgendaRutin::ofTahunAjaran($selectedTahunAjaranId);
+        $agendaSenin = (clone $agendaQuery)->where('hari', 'Senin')->ofShift($agendaShiftId)->first();
+        $agendaJumat = (clone $agendaQuery)->where('hari', 'Jumat')->ofShift($agendaShiftId)->first();
+        $agendaRutin = $agendaSenin ?? (clone $agendaQuery)->ofShift($agendaShiftId)->first();
 
         // Opsi dropdown jam untuk Pengaturan Upacara (khusus hari Senin, mewakili
         // kategori Senin-Kamis) & Pembiasaan (khusus hari Jumat), TERBATAS pada

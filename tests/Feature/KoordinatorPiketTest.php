@@ -68,23 +68,32 @@ class KoordinatorPiketTest extends TestCase
         $koordinatorSiang = $this->makeUser('guru', null, '081234567812');
         $anggotaPagi = $this->makeUser('guru', null, '081234567813');
         $anggotaSiang = $this->makeUser('guru', null, '081234567814');
+        $period = [
+            'minggu_ke' => min(4, (int) ceil(now()->day / 7)),
+            'bulan' => now()->month,
+            'tahun' => now()->year,
+        ];
 
         JadwalPiket::create([
+            ...$period,
             'hari' => 'Senin',
             'user_id' => $koordinatorPagi->id,
             'koordinator_pagi_user_id' => $koordinatorPagi->id,
         ]);
         JadwalPiket::create([
+            ...$period,
             'hari' => 'Senin',
             'user_id' => $koordinatorSiang->id,
             'koordinator_siang_user_id' => $koordinatorSiang->id,
         ]);
         JadwalPiket::create([
+            ...$period,
             'hari' => 'Senin',
             'user_id' => $anggotaPagi->id,
             'petugas_pagi_user_id' => $anggotaPagi->id,
         ]);
         JadwalPiket::create([
+            ...$period,
             'hari' => 'Senin',
             'user_id' => $anggotaSiang->id,
             'petugas_siang_user_id' => $anggotaSiang->id,
@@ -124,7 +133,7 @@ class KoordinatorPiketTest extends TestCase
 
     public function test_sidebar_tugas_tambahan_tampil_hanya_untuk_koordinator(): void
     {
-        ['koordinatorPagi' => $koordinatorPagi] = $this->buatJadwalSenin();
+        ['koordinatorPagi' => $koordinatorPagi, 'anggotaSiang' => $anggotaSiang] = $this->buatJadwalSenin();
 
         // Koordinator: seksi TUGAS TAMBAHAN + menu Kelola Piket Shift tampil.
         $this->actingAs($koordinatorPagi)
@@ -141,6 +150,36 @@ class KoordinatorPiketTest extends TestCase
             ->assertOk()
             ->assertDontSee('TUGAS TAMBAHAN')
             ->assertDontSee('Kelola Piket Shift (Koordinator)');
+
+        $petugasSiang = $this->makeUser('guru', 'guru_piket_siang');
+        JadwalPiket::create([
+            'hari' => 'Senin',
+            'minggu_ke' => 3,
+            'bulan' => 8,
+            'tahun' => 2026,
+            'user_id' => $petugasSiang->id,
+            'koordinator_siang_user_id' => $petugasSiang->id,
+        ]);
+        JadwalPiket::create([
+            'hari' => 'Senin',
+            'minggu_ke' => 4,
+            'bulan' => 8,
+            'tahun' => 2026,
+            'user_id' => $petugasSiang->id,
+            'petugas_siang_user_id' => $petugasSiang->id,
+        ]);
+
+        $this->assertFalse($petugasSiang->isKoordinatorToday());
+        $this->actingAs($petugasSiang)
+            ->get(route('guru.dashboard'))
+            ->assertOk()
+            ->assertDontSee('Kelola Piket Shift (Koordinator)')
+            ->assertDontSee('href="'.route('koordinator.piket').'"', false);
+
+        $this->assertTrue($koordinatorPagi->isKoordinatorToday());
+        $this->actingAs($petugasSiang)
+            ->get(route('koordinator.piket'))
+            ->assertForbidden();
     }
 
     public function test_panel_ditolak_untuk_guru_non_koordinator(): void
@@ -157,18 +196,24 @@ class KoordinatorPiketTest extends TestCase
         $this->actingAs($anggotaPagi)
             ->get(route('koordinator.piket'))
             ->assertStatus(403);
+
+        // A session role switch cannot grant coordinator access without a
+        // matching coordinator assignment for the current date.
+        $this->actingAs($anggotaPagi)
+            ->withSession(['active_role' => 'koordinator_piket'])
+            ->get(route('koordinator.piket'))
+            ->assertStatus(403);
     }
 
-    public function test_panel_dapat_dibuka_petugas_it(): void
+    public function test_panel_ditolak_untuk_petugas_it_tanpa_penugasan_koordinator(): void
     {
         $this->buatJadwalSenin();
         $itUser = $this->makeUser('petugas_it');
 
-        // Petugas IT (peninjau) diizinkan; tanpa jadwal -> empty state informatif.
+        // Petugas IT without a coordinator assignment is also denied.
         $this->actingAs($itUser)
             ->get(route('koordinator.piket'))
-            ->assertOk()
-            ->assertSee('Tidak ada shift yang dipimpin pada hari ini');
+            ->assertStatus(403);
     }
 
     public function test_monitoring_kehadiran_anggota_shift_tersimpan(): void

@@ -75,6 +75,16 @@
         </a>
     </div>
 
+    @if($isDaring ?? false)
+        <div class="alert alert-info border-info-subtle rounded-4 shadow-sm d-flex align-items-start gap-2 mb-4">
+            <i class="bi bi-wifi fs-5 mt-1"></i>
+            <div>
+                <div class="fw-bold">KBM Daring Aktif</div>
+                <div class="small">Pengisian jurnal fleksibel tanpa batasan keterlambatan jam.</div>
+            </div>
+        </div>
+    @endif
+
     @if($errors->any())
         <div class="alert alert-danger border-0 rounded-4 shadow-sm mb-4">
             <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Terdapat kesalahan pada form:</div>
@@ -144,11 +154,12 @@
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-semibold text-secondary small text-uppercase d-block mb-2">
-                        Foto Kegiatan KBM (Wajib Kamera Live)
+                        Foto Kegiatan KBM ({{ ($isDaring ?? false) ? 'Opsional saat Daring' : 'Wajib Kamera Live' }})
                     </label>
                     
                     <!-- HIDDEN INPUT BASE64 FOTO KEGIATAN -->
                     <input type="hidden" name="foto_kegiatan_camera" id="foto_kegiatan_camera_input">
+                    <input type="hidden" name="hapus_foto_kegiatan" id="hapus_foto_kegiatan_input" value="0">
 
                     <div class="d-flex align-items-center gap-3 flex-wrap">
                         <button type="button" 
@@ -169,6 +180,11 @@
                                 <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small">
                                     <i class="bi bi-check-circle me-1"></i> Tersedia
                                 </span>
+                                <button type="button"
+                                        class="btn btn-outline-danger btn-sm rounded-3"
+                                        onclick="clearJournalPhoto()">
+                                    <i class="bi bi-trash me-1"></i> Hapus Foto
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -247,11 +263,17 @@
                                 $dispenInfo = isset($dispenMap) ? ($dispenMap[$siswa->id] ?? null) : null;
                                 $isDispenLocked = $dispenInfo ? (bool) $dispenInfo->is_locked : false;
                                 $dispen = $dispenInfo ? $dispenInfo->dispen : null;
+                                $isReturnedPresent = $dispenInfo
+                                    && ($dispenInfo->is_returned_present ?? false);
                                 $isTerlambatLocked = ($dispenInfo && ($dispenInfo->is_terlambat ?? false))
                                     || ($existingAbsensi && $existingAbsensi->status === 'Terlambat');
                                 $isAutomaticStatusLocked = $isDispenLocked || $isTerlambatLocked;
 
-                                if ($isDispenLocked) {
+                                if ($isReturnedPresent) {
+                                    $isTidakHadir = false;
+                                    $currentStatus = 'Hadir';
+                                    $currentKeterangan = null;
+                                } elseif ($isDispenLocked) {
                                     $isTidakHadir = true;
                                     $currentStatus  = 'Dispen';
                                     $currentKeterangan = 'Dispensasi: ' . ($dispenInfo->alasan ?: 'Dispen');
@@ -347,7 +369,7 @@
                                     @endif
                                 </td>
                             </tr>
-                            <tr class="presensi-detail {{ $isTidakHadir ? '' : 'd-none' }} {{ $isAutomaticStatusLocked ? 'dispen-locked-row' : '' }}" id="detail_row_{{ $siswa->id }}" style="{{ $isAutomaticStatusLocked ? 'opacity: 0.9;' : '' }}">
+                            <tr class="presensi-detail {{ ($isTidakHadir || $isReturnedPresent) ? '' : 'd-none' }} {{ $isAutomaticStatusLocked ? 'dispen-locked-row' : '' }}" id="detail_row_{{ $siswa->id }}" style="{{ $isAutomaticStatusLocked ? 'opacity: 0.9;' : '' }}">
                                 <td colspan="5" class="bg-light rounded-3">
                                     <div class="p-3">
                                         <div class="row g-3 align-items-start">
@@ -356,7 +378,11 @@
                                                 <label class="form-label fw-semibold small text-uppercase text-secondary">
                                                     Status Ketidakhadiran <span class="text-danger">*</span>
                                                 </label>
-                                                @if($isTerlambatLocked)
+                                                @if($isReturnedPresent)
+                                                    <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-3 py-2 fw-bold">
+                                                        <i class="bi bi-check-circle-fill me-1"></i> Hadir · Sudah Kembali
+                                                    </span>
+                                                @elseif($isTerlambatLocked)
                                                     <div class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill px-3 py-2 fw-bold">
                                                         <i class="bi bi-clock-history me-1"></i> Terlambat (T) · Otomatis
                                                     </div>
@@ -375,7 +401,7 @@
                                             </div>
 
                                             <!-- 2 & 3. Wrapper Container Keterangan & Foto Surat (Sakit / Izin) -->
-                                            <div class="col-md-8 detail-ketidakhadiran-wrapper {{ in_array($currentStatus, ['Dispen', 'Terlambat'], true) ? 'd-none' : '' }}" id="wrapper-izin-sakit-{{ $siswa->id }}">
+                                            <div class="col-md-8 detail-ketidakhadiran-wrapper {{ ($isReturnedPresent || in_array($currentStatus, ['Dispen', 'Terlambat'], true)) ? 'd-none' : '' }}" id="wrapper-izin-sakit-{{ $siswa->id }}">
                                                 <div class="row g-3">
                                                     <!-- Input Text Keterangan -->
                                                     <div class="col-md-6">
@@ -391,45 +417,68 @@
                                                                {{ ($isTidakHadir && !$isAutomaticStatusLocked) ? '' : 'disabled' }}>
                                                     </div>
 
-                                                    <!-- Foto Surat Izin via Kamera Live -->
+                                                    <!-- Foto Surat Izin via Kamera Live / Bukti Surat Piket -->
                                                     <div class="col-md-6">
                                                         <label class="form-label fw-semibold small text-uppercase text-secondary d-block mb-1">
                                                             Foto Surat Izin / Dokter
                                                         </label>
 
-                                                        <!-- HIDDEN INPUT BASE64 FOTO SURAT SISWA -->
-                                                        <input type="hidden" 
-                                                               name="presensi[{{ $siswa->id }}][foto_surat_camera]" 
-                                                               id="foto_surat_camera_input_{{ $siswa->id }}"
-                                                               class="input-detail-{{ $siswa->id }}"
-                                                               {{ ($isTidakHadir && !$isAutomaticStatusLocked) ? '' : 'disabled' }}>
+                                                        @if($prefillFromPiket)
+                                                            @if(!empty($piketEntry->foto_surat))
+                                                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                                    <button type="button" 
+                                                                            class="btn btn-sm btn-outline-info rounded-3 px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5 shadow-sm"
+                                                                            onclick="showImagePreview('{{ asset('storage/' . $piketEntry->foto_surat) }}', 'Bukti Surat Izin (Piket) - {{ addslashes($siswa->nama) }}')">
+                                                                        <i class="bi bi-file-earmark-image-fill fs-6 text-info"></i>
+                                                                        <span>Lihat Bukti Surat</span>
+                                                                    </button>
+                                                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1" style="font-size: 0.72rem;">
+                                                                        <i class="bi bi-check-circle me-1"></i>Tersimpan di Piket
+                                                                    </span>
+                                                                </div>
+                                                            @else
+                                                                <div class="d-flex align-items-center gap-2 py-1">
+                                                                    <span class="badge bg-light text-muted border rounded-pill px-2.5 py-1.5 small d-inline-flex align-items-center gap-1">
+                                                                        <i class="bi bi-info-circle text-secondary"></i>
+                                                                        <span>Tanpa lampiran berkas dari Piket</span>
+                                                                    </span>
+                                                                </div>
+                                                            @endif
+                                                        @else
+                                                            <!-- HIDDEN INPUT BASE64 FOTO SURAT SISWA -->
+                                                            <input type="hidden" 
+                                                                   name="presensi[{{ $siswa->id }}][foto_surat_camera]" 
+                                                                   id="foto_surat_camera_input_{{ $siswa->id }}"
+                                                                   class="input-detail-{{ $siswa->id }}"
+                                                                   {{ ($isTidakHadir && !$isAutomaticStatusLocked) ? '' : 'disabled' }}>
 
-                                                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                                                            <button type="button" 
-                                                                    class="btn btn-sm btn-outline-primary rounded-3 input-detail-{{ $siswa->id }}"
-                                                                    id="btn_trigger_surat_{{ $siswa->id }}"
-                                                                    onclick="openCameraModal('foto_surat_camera_input_{{ $siswa->id }}', 'preview_surat_thumb_{{ $siswa->id }}', 'Foto Surat - {{ addslashes($siswa->nama) }}')"
-                                                                    {{ ($isTidakHadir && !$isAutomaticStatusLocked) ? '' : 'disabled' }}>
-                                                                <i class="bi bi-camera-fill me-1"></i> Kamera Live
-                                                            </button>
+                                                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                                                <button type="button" 
+                                                                        class="btn btn-sm btn-outline-primary rounded-3 input-detail-{{ $siswa->id }}"
+                                                                        id="btn_trigger_surat_{{ $siswa->id }}"
+                                                                        onclick="openCameraModal('foto_surat_camera_input_{{ $siswa->id }}', 'preview_surat_thumb_{{ $siswa->id }}', 'Foto Surat - {{ addslashes($siswa->nama) }}')"
+                                                                        {{ ($isTidakHadir && !$isAutomaticStatusLocked) ? '' : 'disabled' }}>
+                                                                    <i class="bi bi-camera-fill me-1"></i> Kamera Live
+                                                                </button>
 
-                                                            <!-- THUMBNAIL SURAT SISWA -->
-                                                            <div id="preview_surat_container_{{ $siswa->id }}" 
-                                                                 class="{{ (($existingAbsensi && $existingAbsensi->foto_surat) || ($prefillFromPiket && $piketEntry->foto_surat)) ? '' : 'd-none' }}">
-                                                                <img id="preview_surat_thumb_{{ $siswa->id }}" 
-                                                                     src="{{ ($existingAbsensi && $existingAbsensi->foto_surat) ? asset('storage/' . $existingAbsensi->foto_surat) : (($prefillFromPiket && $piketEntry->foto_surat) ? asset('storage/' . $piketEntry->foto_surat) : '') }}" 
-                                                                     alt="Surat {{ $siswa->nama }}" 
-                                                                     class="img-preview-thumbnail"
-                                                                     style="width: 60px; height: 45px;"
-                                                                     onclick="showImagePreview(this.src, 'Foto Surat Izin - {{ addslashes($siswa->nama) }}')">
+                                                                <!-- THUMBNAIL SURAT SISWA -->
+                                                                <div id="preview_surat_container_{{ $siswa->id }}" 
+                                                                     class="{{ ($existingAbsensi && $existingAbsensi->foto_surat) ? '' : 'd-none' }}">
+                                                                    <img id="preview_surat_thumb_{{ $siswa->id }}" 
+                                                                         src="{{ ($existingAbsensi && $existingAbsensi->foto_surat) ? asset('storage/' . $existingAbsensi->foto_surat) : '' }}" 
+                                                                         alt="Surat {{ $siswa->nama }}" 
+                                                                         class="img-preview-thumbnail"
+                                                                         style="width: 60px; height: 45px;"
+                                                                         onclick="showImagePreview(this.src, 'Foto Surat Izin - {{ addslashes($siswa->nama) }}')">
+                                                                </div>
                                                             </div>
-                                                        </div>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <!-- 4. Wrapper Container Tombol Surat Dispen Digital (Dispen) -->
-                                            <div class="col-md-8 dispen-button-wrapper {{ $currentStatus === 'Dispen' ? '' : 'd-none' }}" id="wrapper-dispen-btn-{{ $siswa->id }}">
+                                            <div class="col-md-8 dispen-button-wrapper {{ ($currentStatus === 'Dispen' || ($dispenInfo && $dispenInfo->is_returned)) ? '' : 'd-none' }}" id="wrapper-dispen-btn-{{ $siswa->id }}">
                                                 <label class="form-label fw-semibold small text-uppercase text-secondary d-block mb-1">
                                                     Surat Dispensasi Digital
                                                 </label>
@@ -535,6 +584,7 @@
             </div>
             <div class="modal-body text-center py-4">
                 <img id="previewGambarSrc" src="" alt="Preview Gambar" class="img-fluid rounded-3 shadow-sm" style="max-height: 500px; object-fit: contain;">
+                <iframe id="previewGambarPdf" src="" class="w-100 rounded-3 d-none" style="height: 70vh; border: none;"></iframe>
             </div>
             <div class="modal-footer border-0 pt-0 justify-content-end">
                 <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Tutup</button>
@@ -686,8 +736,27 @@
     });
 
     function showImagePreview(url, title = 'Preview Gambar') {
+        if (!url) return;
         document.getElementById('modalPreviewGambarTitle').innerText = title;
-        document.getElementById('previewGambarSrc').src = url;
+        const previewImg = document.getElementById('previewGambarSrc');
+        const previewPdf = document.getElementById('previewGambarPdf');
+        
+        if (url.toLowerCase().endsWith('.pdf')) {
+            if (previewImg) previewImg.classList.add('d-none');
+            if (previewPdf) {
+                previewPdf.src = url;
+                previewPdf.classList.remove('d-none');
+            }
+        } else {
+            if (previewPdf) {
+                previewPdf.classList.add('d-none');
+                previewPdf.src = '';
+            }
+            if (previewImg) {
+                previewImg.src = url;
+                previewImg.classList.remove('d-none');
+            }
+        }
         const modal = new bootstrap.Modal(document.getElementById('modalPreviewGambar'));
         modal.show();
     }
@@ -843,6 +912,10 @@
         if (targetInput) {
             targetInput.value = currentCapturedBase64;
         }
+        const removePhotoInput = document.getElementById('hapus_foto_kegiatan_input');
+        if (currentTargetInputId === 'foto_kegiatan_camera_input' && removePhotoInput) {
+            removePhotoInput.value = '0';
+        }
 
         // Set preview thumbnail di form utama
         if (currentTargetThumbImgId) {
@@ -855,6 +928,18 @@
         }
 
         closeCameraModal();
+    }
+
+    function clearJournalPhoto() {
+        const cameraInput = document.getElementById('foto_kegiatan_camera_input');
+        const removePhotoInput = document.getElementById('hapus_foto_kegiatan_input');
+        const previewContainer = document.getElementById('preview_kegiatan_container');
+        const previewImage = document.getElementById('preview_kegiatan_thumb');
+
+        if (cameraInput) cameraInput.value = '';
+        if (removePhotoInput) removePhotoInput.value = '1';
+        if (previewImage) previewImage.src = '';
+        if (previewContainer) previewContainer.classList.add('d-none');
     }
 
     // TUTUP MODAL & HENTIKAN STREAM KAMERA

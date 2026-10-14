@@ -30,6 +30,12 @@
                     </ul>
                 </div>
 
+                <!-- Tombol Import Jurusan -->
+                <button type="button" class="btn btn-outline-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto d-flex align-items-center justify-content-center gap-1.5" data-bs-toggle="modal" data-bs-target="#modalImportJurusan">
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    <span>Import Data</span>
+                </button>
+
                 <!-- Tombol Tambah Jurusan -->
                 <a href="{{ route('jurusan.create') }}" class="btn btn-primary rounded-3 px-3 py-2 fw-semibold shadow-sm w-full sm:w-auto text-center">
                     <i class="bi bi-plus-lg me-1"></i> Tambah Jurusan
@@ -41,6 +47,28 @@
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
             <i class="bi bi-check-circle-fill me-2"></i>{{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('import_warnings'))
+        <div class="alert alert-warning alert-dismissible fade show border-0 shadow-sm rounded-4 mb-4" role="alert">
+            <div class="d-flex align-items-center mb-1">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Catatan Import:</strong>
+            </div>
+            <ul class="mb-0 ps-3 small">
+                @foreach(session('import_warnings') as $warning)
+                    <li>{{ $warning }}</li>
+                @endforeach
+            </ul>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     @endif
@@ -90,6 +118,76 @@
         </div>
     </div>
 </div>
+
+{{-- ==================== MODAL IMPORT JURUSAN ==================== --}}
+@if(in_array(auth()->user()->role ?? '', ['admin_tu', 'admin', 'super_admin']) || (auth()->user() && auth()->user()->isTestingUser()))
+<div class="modal fade" id="modalImportJurusan" tabindex="-1" aria-labelledby="modalImportJurusanLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 38px; height: 38px;">
+                        <i class="bi bi-file-earmark-arrow-up-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="modalImportJurusanLabel">Import Data Jurusan</h5>
+                        <p class="text-muted small mb-0">Unggah berkas Excel / CSV master jurusan</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('jurusan.import') }}" method="POST" enctype="multipart/form-data" id="formImportJurusan">
+                @csrf
+                <div class="modal-body p-4">
+                    {{-- Notice / Information badge --}}
+                    <div class="alert alert-info border-0 rounded-3 small mb-3">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-info-circle-fill fs-6 mt-0.5"></i>
+                            <div>
+                                Pastikan format berkas sesuai kolom berikut:
+                                <ul class="mb-1 ps-3 mt-1">
+                                    <li>Kolom B: <strong>KODE JURUSAN</strong> (Wajib, Unik — contoh: <em>RPL, TKJ, AKL</em>).</li>
+                                    <li>Kolom C: <strong>NAMA JURUSAN</strong> (Wajib — contoh: <em>Rekayasa Perangkat Lunak</em>).</li>
+                                </ul>
+                                Baris header (baris 1) akan otomatis diabaikan. Jika kode jurusan sudah terdaftar, data nama jurusan akan diperbarui otomatis.
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- File Input --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-dark">Pilih File Excel / CSV <span class="text-danger">*</span></label>
+                        <input type="file" name="file_jurusan" class="form-control rounded-3" accept=".xlsx,.xls,.csv" required>
+                        <div class="form-text text-muted small">Format didukung: .xlsx, .xls, .csv (Maks. 10 MB)</div>
+                    </div>
+
+                    {{-- Download Template Section --}}
+                    <div class="p-3 bg-light rounded-3 border d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-2">
+                        <div class="small text-muted">
+                            <i class="bi bi-file-earmark-arrow-down text-primary me-1"></i>
+                            <span class="fw-semibold text-dark">Template Import Jurusan</span>
+                        </div>
+                        <div class="d-flex gap-2 w-100 w-sm-auto">
+                            <a href="{{ route('jurusan.template', ['format' => 'xlsx']) }}" class="btn btn-sm btn-outline-success rounded-2 fw-semibold px-2.5 py-1.5 flex-grow-1 flex-sm-grow-0">
+                                <i class="bi bi-file-earmark-excel me-1"></i> Unduh .xlsx
+                            </a>
+                            <a href="{{ route('jurusan.template', ['format' => 'csv']) }}" class="btn btn-sm btn-outline-info rounded-2 fw-semibold px-2.5 py-1.5 flex-grow-1 flex-sm-grow-0">
+                                <i class="bi bi-filetype-csv me-1"></i> Unduh .csv
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0 d-flex justify-content-between">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm">
+                        <i class="bi bi-upload me-1"></i> Unggah &amp; Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
 
 @push('scripts')
 <script>

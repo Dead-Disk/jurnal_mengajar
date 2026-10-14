@@ -23,17 +23,29 @@ class JurusanImport implements ToModel, WithHeadingRow
 
     public function model(array $row): Model|array|null
     {
-        // Kolom B → kode jurusan, Kolom C → nama jurusan. Nama kunci utamanya
-        // kode_jurusan / nama_jurusan (slug dari header "KODE JURUSAN" &
-        // "NAMA JURUSAN"), dengan fallback posisi untuk header lain.
-        $kode = strtoupper(trim((string) ($row['kode_jurusan'] ?? '')));
+        // Abaikan baris kosong
+        $rawValues = array_filter(array_values($row), fn ($val) => trim((string) $val) !== '');
+        if (empty($rawValues)) {
+            return null;
+        }
+
+        // Kolom B → kode jurusan, Kolom C → nama jurusan.
+        // Mendukung slug dari header "KODE JURUSAN", "KODE", atau posisi index 1 (B)
+        $kode = strtoupper(trim((string) ($row['kode_jurusan'] ?? $row['kode'] ?? '')));
         if ($kode === '') {
             $kode = strtoupper($this->cellAt($row, 1));
         }
 
-        $nama = trim((string) ($row['nama_jurusan'] ?? ''));
+        // Mendukung slug dari header "NAMA JURUSAN", "NAMA", "JURUSAN", atau posisi index 2 (C)
+        $nama = trim((string) ($row['nama_jurusan'] ?? $row['nama'] ?? $row['jurusan'] ?? ''));
         if ($nama === '') {
             $nama = $this->cellAt($row, 2);
+        }
+
+        // Fallback jika file tanpa kolom NO (Kolom A = KODE, Kolom B = NAMA)
+        if ($kode === '' && $nama === '') {
+            $kode = strtoupper($this->cellAt($row, 0));
+            $nama = $this->cellAt($row, 1);
         }
 
         if ($kode === '' || $nama === '') {
@@ -43,10 +55,7 @@ class JurusanImport implements ToModel, WithHeadingRow
             return null;
         }
 
-        // updateOrCreate penyetara: kode_jurusan unik GLOBAL (bukan per
-        // partisi), dan baris lama bisa saja masih mengisi unique index walau
-        // di-soft-delete. Karenanya telusuri lintas partisi + soft-delete agar
-        // tidak menabrak unique constraint, lalu selaraskan partisi import-nya.
+        // Kode jurusan bersifat unik (updateOrCreate)
         $existing = Jurusan::withTrashed()
             ->withoutGlobalScope(TestingDataScope::class)
             ->where('kode_jurusan', $kode)

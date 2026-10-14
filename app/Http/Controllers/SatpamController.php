@@ -195,6 +195,24 @@ class SatpamController extends Controller
     }
 
     /**
+     * Daftar siswa untuk dropdown Satpam, dibatasi pada kelas yang dipilih.
+     */
+    public function getSiswaByKelas(Request $request)
+    {
+        $this->authorizeSatpam();
+
+        $data = $request->validate([
+            'id_kelas' => 'required|integer|exists:kelas,id',
+        ]);
+
+        return response()->json(
+            Siswa::where('id_kelas', $data['id_kelas'])
+                ->orderBy('nama')
+                ->get(['id', 'nama', 'nis', 'nisn'])
+        );
+    }
+
+    /**
      * Catat siswa terlambat di gerbang.
      * Record OTOMATIS dihubungkan ke SEMUA Guru Piket yang bertugas hari ini
      * (tabel jadwal_piket) dan ke Wali Kelas siswa (siswa->kelas->id_wali_kelas).

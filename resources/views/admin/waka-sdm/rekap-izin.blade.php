@@ -533,6 +533,8 @@
             'ttd_kepsek' => $i->ttd_kepsek_url,
             'nama_waka' => $i->approverWaka?->nama,
             'nama_kepsek' => $i->approverKepsek?->nama,
+            'nip_kepsek' => $i->approverKepsek?->nip,
+            'kepsek_approved' => $i->isApproved(),
             'approved_at' => $i->approved_at ? $i->approved_at->translatedFormat('d F Y H:i') : null,
         ];
     })->values();
@@ -552,6 +554,8 @@ function openDetailModal(izinId) {
         : `<span class="text-muted text-xs">Belum ada tanda tangan</span>`;
     const ttdKepsek = data.ttd_kepsek
         ? `<img src="${data.ttd_kepsek}" class="rounded border" style="height: 56px; object-fit: contain;" alt="TTD Kepsek">`
+        : data.kepsek_approved
+            ? `<span class="text-success small">Disetujui secara Digital oleh Kepala Sekolah</span>`
         : `<span class="text-muted text-xs">Belum ada tanda tangan</span>`;
 
     let lampiranHtml = '';
@@ -672,6 +676,8 @@ function openDokumenModal(izinId) {
         : `<span class="text-muted fst-italic">(belum ada)</span>`;
     const ttdKepsek = data.ttd_kepsek
         ? `<img src="${data.ttd_kepsek}" style="height: 64px; object-fit: contain;" alt="TTD Kepsek">`
+        : data.kepsek_approved
+            ? `<span class="text-success fst-italic">Disetujui secara Digital</span>`
         : `<span class="text-muted fst-italic">(belum ada)</span>`;
 
     let lampiranBlock = '';
@@ -744,7 +750,7 @@ function openDokumenModal(izinId) {
             <div style="text-align:center; width:45%;">
                 <div class="mb-1" style="font-size:0.8rem;">Menyetujui,<br>Kepala Sekolah${data.nama_kepsek ? ' / '+data.nama_kepsek : ''}</div>
                 <div style="height:70px;">${ttdKepsek}</div>
-                <div class="border-top d-inline-block pt-1" style="font-size:0.8rem; min-width:140px;">${data.nama_kepsek || '...........................'}</div>
+                <div class="border-top d-inline-block pt-1" style="font-size:0.8rem; min-width:140px;">${data.nama_kepsek || '...........................'}${data.nip_kepsek ? `<br>NIP. ${data.nip_kepsek}` : ''}</div>
             </div>
         </div>
     `);

@@ -102,7 +102,7 @@ class RuanganImportTest extends TestCase
             'file_ruangan' => $file,
         ]);
 
-        $response->assertRedirect(route('import.index'));
+        $response->assertRedirect(route('ruangan.index'));
         $response->assertSessionHas('success');
 
         $this->assertDatabaseHas('ruangans', [

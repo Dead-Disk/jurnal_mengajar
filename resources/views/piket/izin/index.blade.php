@@ -315,6 +315,8 @@
             'ttd_kepsek'   => $i->ttd_kepsek_url,
             'nama_waka'    => $i->approverWaka?->nama,
             'nama_kepsek'  => $i->approverKepsek?->nama,
+            'nip_kepsek'   => $i->approverKepsek?->nip,
+            'kepsek_approved' => $i->isApproved(),
             'approved_at'  => $i->approved_at?->translatedFormat('d F Y, H:i'),
         ];
     })->values();
@@ -343,6 +345,8 @@
             : `<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-1 text-2xs">Menunggu TTD Waka SDM</span>`;
         const ttdKepsek = data.ttd_kepsek
             ? `<img src="${data.ttd_kepsek}" class="rounded border" style="height: 56px; object-fit: contain;" alt="TTD Kepsek">`
+            : data.kepsek_approved
+                ? `<span class="badge bg-success-subtle text-success border rounded-pill px-2 py-1 text-2xs">Disetujui secara Digital</span>`
             : `<span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2 py-1 text-2xs">Menunggu TTD Kepsek</span>`;
 
         document.getElementById('modalDetailBodyPiket').innerHTML = `
@@ -388,6 +392,8 @@
             : `<span class="text-muted fst-italic text-xs">(Menunggu TTD Waka SDM)</span>`;
         const ttdKepsek = data.ttd_kepsek
             ? `<img src="${data.ttd_kepsek}" style="height: 64px; object-fit: contain;" alt="TTD Kepsek">`
+            : data.kepsek_approved
+                ? `<span class="text-success fst-italic text-xs">Disetujui secara Digital</span>`
             : `<span class="text-muted fst-italic text-xs">(Menunggu TTD Kepsek)</span>`;
 
         document.getElementById('dokumenSuratPiket').innerHTML = `
@@ -421,7 +427,7 @@
                 <div style="text-align:center; width:32%;">
                     <div class="mb-1" style="font-size:0.8rem;">Menyetujui,<br>Kepala Sekolah</div>
                     <div style="height:70px; display:flex; align-items:center; justify-content:center;">${ttdKepsek}</div>
-                    <div class="border-top d-inline-block pt-1" style="font-size:0.8rem; min-width:130px;">${data.nama_kepsek || '...........................'}</div>
+                    <div class="border-top d-inline-block pt-1" style="font-size:0.8rem; min-width:130px;">${data.nama_kepsek || '...........................'}${data.nip_kepsek ? `<br>NIP. ${data.nip_kepsek}` : ''}</div>
                 </div>
             </div>
         `;

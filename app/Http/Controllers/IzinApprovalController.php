@@ -99,8 +99,8 @@ class IzinApprovalController extends Controller
 
         $pesan = "Halo Bapak/Ibu Kepala Sekolah,\n"
             ."berikut pengajuan Izin Guru atas nama {$guru} pada {$tanggal}.\n\n"
-            .'Pengajuan telah diverifikasi oleh Waka SDM. Mohon menyetujui dan '
-            ."menandatangani melalui link berikut:\n"
+            .'Pengajuan telah diverifikasi oleh Waka SDM. Mohon memberikan '
+            ."persetujuan melalui link berikut:\n"
             .$link."\n\nTerima kasih.";
 
         $noWa = PengaturanJadwal::noWaKepsek();
@@ -349,12 +349,6 @@ class IzinApprovalController extends Controller
         }
 
         // Kepsek -> finalisasi
-        $ttdKepsek = $this->takeTtd($validated['ttd_kepsek'] ?? null);
-        if (! $ttdKepsek) {
-            return redirect()->route('izin.approval.show', $token)
-                ->with('error', 'Tanda tangan Kepala Sekolah wajib diisi untuk menyetujui izin.');
-        }
-
         $kepsekId = $this->resolveKepsekId($request);
         if (! $kepsekId) {
             return redirect()->route('izin.approval.show', $token)
@@ -363,7 +357,7 @@ class IzinApprovalController extends Controller
 
         $izin->update([
             'approved_by_kepsek' => $kepsekId,
-            'ttd_kepsek' => $ttdKepsek,
+            'ttd_kepsek' => null,
             'status' => IzinGuru::STATUS_DISETUJUI,
             'approved_at' => now(),
         ]);
@@ -371,7 +365,7 @@ class IzinApprovalController extends Controller
         NotificationService::izinStatusChanged($izin->refresh());
 
         return redirect()->route('izin.approval.show', $token)
-            ->with('success', "Izin '{$izin->user->nama}' pada {$izin->tanggal->translatedFormat('d F Y')} berhasil DISETUJUI dan ditandatangani Kepala Sekolah.");
+            ->with('success', "Izin '{$izin->user->nama}' pada {$izin->tanggal->translatedFormat('d F Y')} berhasil DISETUJUI secara digital oleh Kepala Sekolah.");
     }
 
     protected function takeTtd(?string $value): ?string

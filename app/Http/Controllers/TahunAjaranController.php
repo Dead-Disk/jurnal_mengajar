@@ -24,7 +24,13 @@ class TahunAjaranController extends Controller
     {
         $this->authorizePetugasTU();
 
-        $query = TahunAjaran::withCount('jadwalPelajaran');
+        $query = TahunAjaran::withCount([
+            'jadwalPelajaran as jadwal_pelajaran_count' => fn ($jadwalQuery) => $jadwalQuery->whereRaw(
+                'jadwal_pelajaran.mode_jadwal = CASE WHEN tahun_ajaran.mode_jadwal IN (?, ?) '
+                .'THEN tahun_ajaran.mode_jadwal ELSE ? END',
+                [TahunAjaran::MODE_GLOBAL, TahunAjaran::MODE_SHIFT, AppSetting::scheduleMode()]
+            ),
+        ]);
 
         // Isolasi data testing: user operasional biasa hanya melihat data PRODUKSI
         // (is_testing_data = 0) — ditambah global scope TestingDataScope sebagai

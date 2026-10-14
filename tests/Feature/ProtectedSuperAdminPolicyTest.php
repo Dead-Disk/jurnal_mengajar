@@ -87,7 +87,7 @@ class ProtectedSuperAdminPolicyTest extends TestCase
             ->assertOk()
             ->getContent();
         $this->assertStringContainsString('value="super_admin"', $html);
-        $this->assertStringContainsString('value="admin"', $html);
+        $this->assertStringNotContainsString('value="admin"', $html);
 
         // Super Admin literal (role 'super_admin').
         $literal = $this->makeUser('super_admin', null);
@@ -117,7 +117,7 @@ class ProtectedSuperAdminPolicyTest extends TestCase
         $this->assertDatabaseMissing('users', ['nama' => 'Anonim Super']);
     }
 
-    public function test_store_petugas_tu_dengan_sub_role_admin_ditolak_403(): void
+    public function test_store_dengan_sub_role_admin_ditolak_karena_tidak_valid(): void
     {
         $tu = $this->makeUser('admin', 'petugas_tu');
 
@@ -129,7 +129,7 @@ class ProtectedSuperAdminPolicyTest extends TestCase
                 'password_confirmation' => 'password123',
                 'sub_role' => 'admin',
             ])
-            ->assertForbidden();
+            ->assertSessionHasErrors('sub_role');
 
         $this->assertDatabaseMissing('users', ['nama' => 'Anonim Admin']);
     }

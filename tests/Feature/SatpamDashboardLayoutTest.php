@@ -98,6 +98,31 @@ class SatpamDashboardLayoutTest extends TestCase
             ->assertSee('Budi Santoso');
     }
 
+    public function test_endpoint_siswa_satpam_hanya_mengembalikan_siswa_dari_kelas_yang_diminta(): void
+    {
+        [$kelas, $siswa] = $this->makeSiswa();
+        $kelasLain = Kelas::create([
+            'nama_kelas' => 'XII MP 3',
+            'tingkat' => 'XII',
+        ]);
+        $siswaLain = Siswa::create([
+            'nisn' => '0000000002',
+            'nis' => '23102',
+            'nama' => 'Siswa Kelas Lain',
+            'jenis_kelamin' => 'P',
+            'id_kelas' => $kelasLain->id,
+        ]);
+
+        $response = $this->actingAs($this->makeSatpam())
+            ->getJson(route('satpam.siswa-by-kelas', ['id_kelas' => $kelas->id]))
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $siswa->id)
+            ->assertJsonPath('0.nama', $siswa->nama);
+
+        $this->assertNotSame($siswaLain->id, $response->json('0.id'));
+    }
+
     public function test_dashboard_grid_form_dan_tabel_seimbang_1_3_dan_2_3(): void
     {
         $this->getDashboard()

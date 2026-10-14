@@ -19,12 +19,12 @@ class JamPulang extends Model implements TestingDataContextAware
         'kategori_hari',
         'tingkat',
         'max_jam_ke',
+        'mode_pulang',
         'is_testing_data',
     ];
 
     protected $casts = [
         'shift_id' => 'integer',
-        'max_jam_ke' => 'integer',
         'is_testing_data' => 'boolean',
     ];
 
@@ -33,14 +33,35 @@ class JamPulang extends Model implements TestingDataContextAware
      * shift_id 0 (default) = pengaturan Global (kelas tanpa shift).
      * Mengembalikan null jika tidak ada batas (bebas).
      */
-    public static function getMaxJamKe(string $kategoriHari, string $tingkat, int $shiftId = 0): ?int
+    public static function getMaxJamKe(string $kategoriHari, string $tingkat, int $shiftId = 0): int|string|null
     {
         $record = static::where('kategori_hari', $kategoriHari)
             ->where('tingkat', $tingkat)
             ->where('shift_id', $shiftId)
             ->first();
 
-        return $record?->max_jam_ke;
+        if (! $record) {
+            return null;
+        }
+
+        return $record->mode_pulang === 'pkl'
+            ? 'pkl'
+            : ($record->max_jam_ke === null ? null : (int) $record->max_jam_ke);
+    }
+
+    public static function isPklFor(?string $tingkat, string $kategoriHari, int $shiftId = 0): bool
+    {
+        if ($tingkat === null) {
+            return false;
+        }
+
+        $normalizedGrade = strtoupper(trim($tingkat));
+
+        return static::where('kategori_hari', $kategoriHari)
+            ->where('tingkat', $normalizedGrade === '12' ? 'XII' : $normalizedGrade)
+            ->where('shift_id', $shiftId)
+            ->where('mode_pulang', 'pkl')
+            ->exists();
     }
 
     /**
@@ -71,10 +92,10 @@ class JamPulang extends Model implements TestingDataContextAware
             $max = $maxByShiftKategori[$r->shift_id][$r->kategori_hari] ?? $maxByShiftKategori[0][$r->kategori_hari] ?? 0;
 
             // Reset jika batas melebihi slot KBM yang tersedia, atau jam ke sudah tidak ada di master
-            if ($r->max_jam_ke === null) {
+            if ($r->mode_pulang === 'pkl' || $r->max_jam_ke === null) {
                 return;
             }
-            if ($r->max_jam_ke > $max || $max === 0) {
+            if ((int) $r->max_jam_ke > $max || $max === 0) {
                 $r->update(['max_jam_ke' => null]);
                 $fixed++;
             }

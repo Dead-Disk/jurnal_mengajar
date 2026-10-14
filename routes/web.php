@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\TrashController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EventKhususController;
 use App\Http\Controllers\Guru\DispensasiVerifikasiController as GuruDispensasiVerifikasiController;
 use App\Http\Controllers\Guru\GuruPortalController;
 use App\Http\Controllers\Guru\JurnalController as GuruJurnalController;
@@ -199,6 +200,7 @@ Route::middleware(['auth', AdminScheduleAccess::class])->group(function () {
     Route::post('/admin/pengajuan-reset/{id}/reject', [ResetRequestController::class, 'reject'])
         ->name('admin.reset-requests.reject');
 
+    Route::get('admin/jurusan/template', [JurusanController::class, 'downloadTemplate'])->name('jurusan.template');
     Route::get('admin/jurusan/export', [JurusanController::class, 'export'])->name('jurusan.export');
     Route::post('admin/jurusan/import', [JurusanController::class, 'import'])->name('jurusan.import');
     Route::resource('admin/jurusan', JurusanController::class);
@@ -356,6 +358,7 @@ use App\Http\Controllers\SatpamController;
 Route::prefix('satpam')->middleware(['auth'])->group(function () {
     Route::get('/', fn () => redirect()->route('satpam.dashboard'));
     Route::get('/dashboard', [SatpamController::class, 'dashboard'])->name('satpam.dashboard');
+    Route::get('/get-siswa-by-kelas', [SatpamController::class, 'getSiswaByKelas'])->name('satpam.siswa-by-kelas');
     Route::post('/terlambat', [SatpamController::class, 'terlambatStore'])->name('satpam.terlambat.store');
     Route::post('/dispensasi', [SatpamController::class, 'dispensasiStore'])->name('satpam.dispensasi.store');
     Route::get('/verifikasi', [SatpamController::class, 'verifikasi'])->name('satpam.verifikasi');
@@ -441,6 +444,10 @@ Route::redirect('/kurikulum/izin/pengaturan', '/admin/waka-sdm/izin/pengaturan')
 
 // ================= ROUTE MASTER & PLOTTING JADWAL (ADMIN / TU) =================
 Route::prefix('admin')->middleware(['auth', AdminScheduleAccess::class])->group(function () {
+    Route::get('/event-khusus', [EventKhususController::class, 'index'])->name('admin.event-khusus.index');
+    Route::post('/event-khusus', [EventKhususController::class, 'store'])->name('admin.event-khusus.store');
+    Route::put('/event-khusus/{eventKhusus}', [EventKhususController::class, 'update'])->name('admin.event-khusus.update');
+    Route::delete('/event-khusus/{eventKhusus}', [EventKhususController::class, 'destroy'])->name('admin.event-khusus.destroy');
     Route::get('/jam-pelajaran', [JamPelajaranController::class, 'index'])->name('admin.jam-pelajaran.index');
     Route::post('/jam-pelajaran', [JamPelajaranController::class, 'store'])->name('admin.jam-pelajaran.store');
     Route::put('/jam-pelajaran/{jamPelajaran}', [JamPelajaranController::class, 'update'])->name('admin.jam-pelajaran.update');

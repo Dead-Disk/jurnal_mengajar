@@ -134,7 +134,7 @@ class RoleSwitcherSuperAdminTest extends TestCase
         $this->withSession(['active_role' => 'super_admin'])
             ->actingAs($this->petugasIt())
             ->post(route('import.reset-siswa'), ['reset_confirm' => 'HAPUS DATA SISWA'])
-            ->assertRedirect(route('import.index'))
+            ->assertRedirect(route('siswa.index'))
             ->assertSessionHas('success');
 
         // Hanya partisi testing yang terhapus — data real utuh.

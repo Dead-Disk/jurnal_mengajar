@@ -97,8 +97,9 @@ class Jurnal extends Model
      * JIKA SUDAH TERISI:
      * - jam_isi <= jam_selesai (pada Hari H) -> "Sudah Terisi" (Hijau)
      * - jam_isi > jam_selesai atau diisi di Hari H+1 dst -> "Terisi (Terlambat)" (Oranye)
+     * - KBM Daring aktif -> tidak menerapkan status terlambat
      */
-    public static function hitungStatusPengisian(?Jurnal $jurnal, string $tanggalKbm, ?string $jamSelesaiStr = null): array
+    public static function hitungStatusPengisian(?Jurnal $jurnal, string $tanggalKbm, ?string $jamSelesaiStr = null, bool $isDaring = false): array
     {
         $now = Carbon::now();
         $todayStr = $now->toDateString();
@@ -109,7 +110,7 @@ class Jurnal extends Model
 
         if (! $jurnal) {
             // Tanggal KBM sudah berlalu
-            if ($kbmDateStr < $todayStr) {
+            if (! $isDaring && $kbmDateStr < $todayStr) {
                 return [
                     'status' => 'belum_terisi_terlambat',
                     'label' => 'Belum Terisi (Terlambat)',
@@ -119,7 +120,7 @@ class Jurnal extends Model
             }
 
             // Tanggal KBM hari ini dan waktu server sudah melewati jam_selesai KBM
-            if ($kbmDateStr === $todayStr && $jamSelesaiTime && $nowTimeStr > $jamSelesaiTime) {
+            if (! $isDaring && $kbmDateStr === $todayStr && $jamSelesaiTime && $nowTimeStr > $jamSelesaiTime) {
                 return [
                     'status' => 'belum_terisi_terlambat',
                     'label' => 'Belum Terisi (Terlambat)',
@@ -142,7 +143,7 @@ class Jurnal extends Model
         $inputTimeStr = Carbon::parse($waktuIsi)->format('H:i:s');
 
         // Diisi pada hari setelah tanggal KBM (Hari H+1 dst)
-        if ($inputDateStr > $kbmDateStr) {
+        if (! $isDaring && $inputDateStr > $kbmDateStr) {
             return [
                 'status' => 'terisi_terlambat',
                 'label' => 'Terisi (Terlambat)',
@@ -153,7 +154,7 @@ class Jurnal extends Model
         }
 
         // Diisi pada Hari H tetapi jam pengisian melewati jam_selesai KBM
-        if ($inputDateStr === $kbmDateStr && $jamSelesaiTime && $inputTimeStr > $jamSelesaiTime) {
+        if (! $isDaring && $inputDateStr === $kbmDateStr && $jamSelesaiTime && $inputTimeStr > $jamSelesaiTime) {
             return [
                 'status' => 'terisi_terlambat',
                 'label' => 'Terisi (Terlambat)',

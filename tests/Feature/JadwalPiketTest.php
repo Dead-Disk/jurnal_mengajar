@@ -13,6 +13,44 @@ class JadwalPiketTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_create_defaults_to_requested_day_and_index_add_link_tracks_active_day(): void
+    {
+        $admin = User::create([
+            'nama' => 'Admin Kurikulum',
+            'username' => 'admin_kurikulum',
+            'password' => bcrypt('password'),
+            'role' => 'admin',
+            'is_active' => true,
+        ]);
+
+        $requestedDayResponse = $this->actingAs($admin)
+            ->get(route('kurikulum.jadwal-piket.create', ['minggu_ke' => 1, 'hari' => 'Selasa']))
+            ->assertOk()
+            ->assertViewHas('selectedHari', 'Selasa');
+
+        $requestedDayResponse->assertSee('value="Selasa" checked', false);
+
+        $defaultHari = match (Carbon::now()->dayOfWeekIso) {
+            1 => 'Senin',
+            2 => 'Selasa',
+            3 => 'Rabu',
+            4 => 'Kamis',
+            5 => 'Jumat',
+            default => 'Senin',
+        };
+
+        $this->actingAs($admin)
+            ->get(route('kurikulum.jadwal-piket.create'))
+            ->assertOk()
+            ->assertViewHas('selectedHari', $defaultHari);
+
+        $this->actingAs($admin)
+            ->get(route('kurikulum.jadwal-piket.index', ['minggu_ke' => 1]))
+            ->assertOk()
+            ->assertSee('minggu_ke=1&amp;hari='.$defaultHari, false)
+            ->assertSee('shown.bs.tab', false);
+    }
+
     public function test_sync_jadwal_piket_updates_schedule_and_flashes_correct_message(): void
     {
         $admin = User::create([

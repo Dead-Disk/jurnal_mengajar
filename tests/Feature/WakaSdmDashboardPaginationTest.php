@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\JadwalPelajaran;
+use App\Models\EventKhusus;
 use App\Models\JamPelajaran;
 use App\Models\Jurusan;
 use App\Models\Kelas;
@@ -12,6 +13,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
@@ -131,6 +133,72 @@ class WakaSdmDashboardPaginationTest extends TestCase
                 'id_tahun_ajaran' => $tahun->id,
             ]);
         }
+    }
+
+    public function test_kelas_dengan_event_non_aktif_dikecualikan_dari_widget_kelas_kosong(): void
+    {
+        $hari = $this->hariIni();
+        $tahun = TahunAjaran::create([
+            'tahun_ajaran' => '2026/2027',
+            'semester' => 'Ganjil',
+            'is_active' => true,
+        ]);
+        $guru = $this->guru();
+        $kelasList = collect();
+        foreach (range(1, 3) as $i) {
+            $kelas = Kelas::create([
+                'nama_kelas' => 'Kelas '.$i,
+                'tingkat' => 'X',
+            ]);
+            $kelasList->push($kelas);
+            $mapel = MataPelajaran::create(['nama_mapel' => 'Mapel '.$i, 'kode_mapel' => 'MP'.$i]);
+            $jam = JamPelajaran::create([
+                'hari' => $hari,
+                'kategori_hari' => in_array($hari, ['Sabtu', 'Minggu'], false) ? $hari : 'Senin-Kamis',
+                'jam_ke' => $i,
+                'jam_mulai' => sprintf('%02d:00:00', 7 + $i),
+                'jam_selesai' => sprintf('%02d:45:00', 7 + $i),
+                'jenis' => 'kbm',
+            ]);
+
+            DB::table('jadwal_pelajaran')->insert([
+                'group_id' => (string) Str::uuid(),
+                'hari' => $hari,
+                'id_jam' => $jam->id,
+                'id_kelas' => $kelas->id,
+                'id_mapel' => $mapel->id,
+                'id_guru' => $guru->id,
+                'id_tahun_ajaran' => $tahun->id,
+                'is_testing_data' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $kelasLibur = $kelasList->first();
+        EventKhusus::create([
+            'nama_event' => 'Classmeeting',
+            'tanggal_mulai' => Carbon::today()->toDateString(),
+            'tanggal_selesai' => Carbon::today()->toDateString(),
+            'tipe_dampak' => 'non_aktif',
+            'scope' => 'kelas_tertentu',
+            'target_kelas' => [$kelasLibur->id],
+        ]);
+
+        $response = $this->actingAs($this->wakaSdm())
+            ->get(route('waka-sdm.dashboard'))
+            ->assertOk();
+        $html = $response->getContent();
+        $widgetStart = strpos($html, 'Pantauan Kelas Kosong (Jam Ini)');
+        $this->assertNotFalse($widgetStart);
+        $widgetEnd = strpos($html, 'Lihat Semua Sesi &rarr;', $widgetStart);
+        $this->assertNotFalse($widgetEnd);
+        $widget = substr($html, $widgetStart, $widgetEnd - $widgetStart);
+
+        $this->assertStringNotContainsString('Kelas 1', $widget);
+        $this->assertStringContainsString('Kelas 2', $widget);
+        $this->assertStringContainsString('Kelas 3', $widget);
+        $this->assertStringContainsString('2 Sesi Belum Diisi', $widget);
     }
 
     public function test_tabel_monitoring_dipotong_10_baris_per_halaman(): void

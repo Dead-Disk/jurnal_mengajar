@@ -110,6 +110,10 @@
                     <li><a class="dropdown-menu-item dropdown-item d-flex align-items-center gap-2" href="{{ route('admin.jadwal.export', ['format' => 'csv']) }}"><i class="bi bi-filetype-csv text-info"></i> Export CSV (.csv)</a></li>
                 </ul>
             </div>
+            {{-- Tombol Import Jadwal --}}
+            <button type="button" class="btn btn-outline-primary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 w-full sm:w-auto text-nowrap" data-bs-toggle="modal" data-bs-target="#modalImportJadwal" style="font-size: 0.875rem;">
+                <i class="bi bi-file-earmark-arrow-up"></i> Import Data
+            </button>
             <a href="{{ route('admin.jam-pelajaran.index') }}" class="btn btn-outline-secondary rounded-3 fw-semibold px-3 py-2 d-flex align-items-center justify-content-center gap-2 w-full sm:w-auto text-nowrap" style="font-size: 0.875rem;">
                 <i class="bi bi-clock-history"></i> Master Jam
             </a>
@@ -134,14 +138,15 @@
     <div class="card border-0 rounded-4 shadow-sm mb-4 bg-white">
         <div class="card-body p-4">
             <form method="GET" action="{{ route('admin.jadwal.index') }}" id="filterForm">
+                <input type="hidden" name="hari" id="filterInputHari" value="{{ $selectedHari ?? 'Senin' }}">
                 <div class="row g-3">
                     {{-- Baris 1: Pilih Kelas (full width) --}}
                     <div class="col-12">
                         <label class="form-label fw-bold text-dark mb-2" style="font-size: 0.9rem;">
                             <i class="bi bi-door-open-fill text-primary me-1"></i> Pilih Kelas
                         </label>
-                        <select name="id_kelas" id="selectKelas" class="form-select rounded-lg w-full">
-                            <option value="" {{ $selectedKelas ? '' : 'selected' }} disabled>-- Pilih Kelas --</option>
+                        <select name="id_kelas" id="selectKelas" class="form-select rounded-lg w-full" onchange="if(this.value){ this.form.submit(); }">
+                            <option value="" {{ $selectedKelas ? '' : 'selected disabled' }}>-- Pilih Kelas --</option>
                             @foreach($kelasList as $kelas)
                                 <option value="{{ $kelas->id }}" {{ $selectedKelas && $selectedKelas->id == $kelas->id ? 'selected' : '' }}>
                                     {{ $kelas->nama_lengkap }}
@@ -228,6 +233,8 @@
                         <button type="button" class="btn btn-sm btn-primary rounded-3 px-3 py-2 fw-semibold d-flex align-items-center gap-1 shadow-sm"
                                 data-bs-toggle="modal" data-bs-target="#modalPlottingJadwal"
                                 data-jam-ke="1"
+                                @disabled($isPklKelas)
+                                title="{{ $isPklKelas ? 'Kelas ini sedang dalam mode PKL / DU-DI.' : 'Plot Mapel' }}"
                                 onclick="preparePlotModal(1)">
                             <i class="bi bi-plus-lg"></i> Plot Mapel
                         </button>
@@ -362,6 +369,7 @@
                                         // Cek batas jam pulang: apakah slot ini melewati maxJamKe?
                                         $isPulang = !$isIstirahat
                                             && $maxJamKe !== null
+                                            && $maxJamKe !== 'pkl'
                                             && $jam->jam_ke !== null
                                             && $jam->jam_ke > $maxJamKe;
 
@@ -371,7 +379,31 @@
                                             : null;
                                     @endphp
 
-                                    @if($agendaItem)
+                                    @if(!$isIstirahat && $isPklKelas)
+                                    <tr style="background-color: #f0fdfa;">
+                                        <td class="text-center sticky left-0 z-10 bg-white border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                                            <div class="rounded-circle d-inline-flex align-items-center justify-content-center fw-bold text-white"
+                                                 style="width: 30px; height: 30px; font-size: 0.78rem; background-color: #0f766e;">
+                                                {{ $jam->jam_ke }}
+                                            </div>
+                                        </td>
+                                        <td><span class="fw-semibold text-dark whitespace-nowrap" style="font-family: 'Courier New', monospace;">{{ $waktuFormatted }}</span></td>
+                                        <td>
+                                            <span class="badge rounded-pill" style="background-color: #ccfbf1; color: #115e59; border: 1px solid #99f6e4;">KBM</span>
+                                        </td>
+                                        <td colspan="3">
+                                            <span class="badge rounded-pill px-3 py-2" style="background-color: #ccfbf1; color: #115e59; border: 1px solid #5eead4;">
+                                                <i class="bi bi-building-check me-1"></i> PKL / DU-DI
+                                            </span>
+                                            <span class="text-muted small ms-2">Slot dikunci untuk kegiatan PKL Kelas XII.</span>
+                                        </td>
+                                        <td class="pe-4 text-end">
+                                            <span class="badge rounded-pill" style="background-color: #115e59; color: #fff;">
+                                                <i class="bi bi-lock-fill me-1"></i> PKL
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    @elseif($agendaItem)
                                     {{-- BARIS AGENDA RUTIN / UPACARA SEKOLAH — slot terkunci global --}}
                                     <tr style="background-color: #eff6ff;">
                                         <td class="text-center sticky left-0 z-10 bg-white border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
@@ -637,9 +669,121 @@
             </div>
         </div>
     @endif
-</fieldset>
-
+    {{-- ====================================================== --}}
+    {{-- ZONA BERBAHAYA: RESET / HAPUS SEMUA DATA JADWAL         --}}
+    {{-- Proteksi ketat: HANYA Super Admin                       --}}
+    {{-- ====================================================== --}}
+    @if(auth()->user()->sub_role === 'super_admin')
+    <div class="card border-0 rounded-4 shadow-sm mb-4" style="border: 1px solid #fee2e2 !important; background: #fff7f7;">
+        <div class="card-body p-4 d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#ef4444,#b91c1c);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-trash3-fill text-white fs-5"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold text-danger mb-1">Zona Berbahaya — Reset / Hapus Semua Data Jadwal</h5>
+                    <p class="text-muted mb-0 small" style="color: #991b1b !important;">
+                        Menghapus seluruh slot jadwal pelajaran pada Tahun Ajaran yang sedang dipilih: <strong>{{ $tahunAktif ? $tahunAktif->tahun_ajaran.' - '.$tahunAktif->semester : 'Belum dipilih' }}</strong>.
+                    </p>
+                </div>
+            </div>
+            <button type="button"
+                    class="btn btn-danger rounded-3 px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 flex-shrink-0"
+                    style="font-size:0.875rem;"
+                    data-reset-route="{{ route('import.reset-jadwal') }}"
+                    data-reset-label="seluruh Jadwal Pelajaran (Tahun Ajaran: {{ $tahunAktif ? $tahunAktif->tahun_ajaran.' - '.$tahunAktif->semester : '' }})"
+                    data-reset-phrase="HAPUS DATA JADWAL"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalResetData">
+                <i class="bi bi-trash3"></i>
+                <span>Reset / Hapus Semua Jadwal</span>
+            </button>
+        </div>
+    </div>
+    @endif
 </div>
+
+{{-- ===================== MODAL IMPORT JADWAL ===================== --}}
+<div class="modal fade" id="modalImportJadwal" tabindex="-1" aria-labelledby="modalImportJadwalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow rounded-4 overflow-hidden">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-2 d-flex align-items-center justify-content-center bg-primary-subtle text-primary" style="width: 38px; height: 38px;">
+                        <i class="bi bi-file-earmark-arrow-up-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="modalImportJadwalLabel">Import Jadwal Pelajaran</h5>
+                        <p class="text-muted small mb-0">Format: Kelas • Hari • Jam • MataPelajaran • Guru • Ruang (.xlsx / .csv)</p>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ route('import.jadwal') }}" method="POST" enctype="multipart/form-data" id="formImportJadwal">
+                @csrf
+                <div class="modal-body p-4">
+                    <div class="row g-4">
+                        {{-- Form Upload --}}
+                        <div class="col-lg-7">
+                            <div class="mb-3">
+                                <label for="tahunAjaranJadwalImport" class="form-label fw-bold small text-dark">
+                                    Target Tahun Ajaran &amp; Semester <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select rounded-3" id="tahunAjaranJadwalImport" name="tahun_ajaran_id" required>
+                                    @foreach($tahunAjaranList as $ta)
+                                        <option value="{{ $ta->id }}" @selected($tahunAktif && (int)$tahunAktif->id === (int)$ta->id)>
+                                            {{ $ta->tahun_ajaran }} - {{ $ta->semester }}{{ $ta->is_active ? ' (Aktif)' : '' }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold small text-dark">File Jadwal <span class="text-danger">*</span></label>
+                                <input type="file" name="file_jadwal" class="form-control rounded-3" accept=".xlsx,.xls,.csv,.txt" required>
+                                <div class="form-text text-muted small">Format didukung: .xlsx, .xls, .csv (Maks. 10 MB)</div>
+                            </div>
+
+                            <div class="alert alert-info border-0 rounded-3 small mb-0">
+                                <i class="bi bi-info-circle-fill me-1"></i>
+                                Slot yang sama (Kelas + Hari + Jam) otomatis di-update. Kelas & Guru wajib ada; Mapel & Ruangan otomatis dibuat jika belum ada.
+                            </div>
+                        </div>
+
+                        {{-- Panduan Format --}}
+                        <div class="col-lg-5 border-start-lg">
+                            <div class="bg-light p-3 rounded-3 border mb-3">
+                                <div class="small fw-bold text-dark mb-2">
+                                    <i class="bi bi-file-earmark-arrow-down text-primary me-1"></i> Template / Format
+                                </div>
+                                <a href="{{ route('import.template-jadwal') }}" class="btn btn-sm btn-outline-info rounded-2 fw-semibold w-100 d-flex align-items-center justify-content-center gap-1.5">
+                                    <i class="bi bi-filetype-csv"></i> Unduh Template CSV (.csv)
+                                </a>
+                            </div>
+
+                            <div class="small text-muted" style="font-size:0.8rem; line-height: 1.45;">
+                                <div class="fw-bold text-dark mb-1">Panduan Kolom:</div>
+                                <ul class="ps-3 mb-0">
+                                    <li>Kolom: <strong>Kelas, Hari, Jam, MataPelajaran, Guru, Ruang</strong>.</li>
+                                    <li>Format Jam: <code>1</code>, <code>4.5.6</code>, atau <code>2-3</code>.</li>
+                                    <li>Hari: Senin, Selasa, Rabu, Kamis, Jumat, Sabtu.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0 d-flex justify-content-between">
+                    <button type="button" class="btn btn-light rounded-3 px-4" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary rounded-3 px-4 fw-semibold shadow-sm">
+                        <i class="bi bi-upload me-1"></i> Unggah & Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@include('admin.common._modal_reset')
 
 {{-- ===================== MODAL PLOTTING JADWAL (MULTI-SLOT / BLOK JAM) ===================== --}}
 @if($selectedKelas)
@@ -777,7 +921,7 @@
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 @php
-    $formattedSlots = $jamPelajaranList->map(function($j) use ($jadwalList, $agendaRutinAktif, $maxJamKe) {
+    $formattedSlots = $jamPelajaranList->map(function($j) use ($jadwalList, $agendaRutinAktif, $maxJamKe, $isPklKelas) {
         $jadwal = $jadwalList ? $jadwalList->get($j->id) : null;
 
         // Sumber pengunci slot (multi-source) untuk label & disabled pada dropdown plotting.
@@ -788,7 +932,10 @@
             $lockLabel  = 'ISTIRAHAT';
         } else {
             $agenda = $agendaRutinAktif?->get($j->jam_ke);
-            if ($agenda) {
+            if ($isPklKelas && $j->jenis === 'kbm') {
+                $lockReason = 'pkl';
+                $lockLabel = 'PKL / DU-DI';
+            } elseif ($agenda) {
                 $namaAgenda = strtolower($agenda->nama_agenda ?? 'Agenda');
                 $lockReason = 'agenda';
                 $lockLabel  = str_contains($namaAgenda, 'upacara')
@@ -817,11 +964,26 @@
 <script>
     const allSlots = @json($formattedSlots);
 
-    // Pemilih Tahun Ajaran & Semester: begitu opsi diganti, langsung muat ulang matriks jadwal
-    // (id_kelas, hari, dan parameter URL lain tetap dipertahankan).
-    document.addEventListener('DOMContentLoaded', function () {
+    // Helper: Navigasi URL otomatis saat kelas dipilih dengan menyertakan hari aktif
+    function navigateToKelas(idKelas) {
+        if (!idKelas) return;
+        const url = new URL(window.location.href);
+        const currentHari = url.searchParams.get('hari') || @json($selectedHari);
+
+        if (idKelas) {
+            url.searchParams.set('id_kelas', idKelas);
+        } else {
+            url.searchParams.delete('id_kelas');
+        }
+
+        url.searchParams.set('hari', currentHari);
+        window.location.href = url.toString();
+    }
+
+    function initJadwalPage() {
         const selectTahunAjaran = document.getElementById('selectTahunAjaran');
-        if (selectTahunAjaran) {
+        if (selectTahunAjaran && !selectTahunAjaran.dataset.initBound) {
+            selectTahunAjaran.dataset.initBound = 'true';
             selectTahunAjaran.addEventListener('change', function () {
                 const url = new URL(window.location.href);
                 url.searchParams.set('tahun_ajaran_id', this.value);
@@ -830,43 +992,45 @@
                 window.location.href = url.toString();
             });
         }
-    });
 
-    // State mode Edit: kumpulan jam_ke milik jadwal (grup) yang sedang di-edit — tidak di-disable.
-    let plotEditExemptJamKe = new Set();
-
-    document.addEventListener('DOMContentLoaded', function () {
         // 1. Inisialisasi Choices.js pada Dropdown Pilih Kelas
         const selectKelasEl = document.getElementById('selectKelas');
-        if (selectKelasEl) {
-            const choices = new Choices(selectKelasEl, {
-                searchEnabled: true,
-                searchPlaceholderValue: 'Ketik nama kelas...',
-                itemSelectText: '',
-                shouldSort: false,
-                placeholder: true,
-                placeholderValue: '-- Pilih Kelas --',
-                noResultsText: 'Kelas tidak ditemukan',
+        if (selectKelasEl && !selectKelasEl.dataset.choicesBound) {
+            selectKelasEl.dataset.choicesBound = 'true';
+
+            if (typeof Choices !== 'undefined') {
+                const choices = new Choices(selectKelasEl, {
+                    searchEnabled: true,
+                    searchPlaceholderValue: 'Ketik nama kelas...',
+                    itemSelectText: '',
+                    shouldSort: false,
+                    placeholder: true,
+                    placeholderValue: '-- Pilih Kelas --',
+                    noResultsText: 'Kelas tidak ditemukan',
+                });
+            }
+
+            // Tangani event perubahan dari Choices.js maupun native select (change, addItem, choice)
+            selectKelasEl.addEventListener('change', function (e) {
+                const val = this.value || e.target?.value || e.detail?.value;
+                if (val) navigateToKelas(val);
             });
 
-            selectKelasEl.addEventListener('change', function () {
-                const url = new URL(window.location.href);
-                const currentHari = url.searchParams.get('hari') || @json($selectedHari);
+            selectKelasEl.addEventListener('addItem', function (e) {
+                const val = e.detail?.value || this.value;
+                if (val) navigateToKelas(val);
+            });
 
-                if (this.value) {
-                    url.searchParams.set('id_kelas', this.value);
-                } else {
-                    url.searchParams.delete('id_kelas');
-                }
-
-                url.searchParams.set('hari', currentHari);
-                window.location.href = url.toString();
+            selectKelasEl.addEventListener('choice', function (e) {
+                const val = e.detail?.choice?.value || e.detail?.value || this.value;
+                if (val) navigateToKelas(val);
             });
         }
 
         // 2. Tangani event pembukaan modal plotting agar membaca data-jam-ke dari tombol pemicu
         const modalPlotting = document.getElementById('modalPlottingJadwal');
-        if (modalPlotting) {
+        if (modalPlotting && !modalPlotting.dataset.modalBound) {
+            modalPlotting.dataset.modalBound = 'true';
             modalPlotting.addEventListener('show.bs.modal', function (event) {
                 const button = event.relatedTarget;
                 if (button) {
@@ -904,7 +1068,19 @@
         });
 
         updateJpInfo();
-    });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initJadwalPage);
+    } else {
+        initJadwalPage();
+    }
+
+    if (window.up) {
+        up.on('up:fragment:inserted', function (event) {
+            initJadwalPage();
+        });
+    }
 
     function updateJpInfo() {
         const mulaiEl = document.getElementById('plotJamKeMulai');
@@ -1341,5 +1517,47 @@
             });
         });
     });
+
+    // ── Script Modal Reset Data ──
+    (function () {
+        const modalEl  = document.getElementById('modalResetData');
+        const form     = document.getElementById('formResetData');
+        const input    = document.getElementById('resetConfirmInput');
+        const btnReset = document.getElementById('btnConfirmReset');
+        const lblText  = document.getElementById('resetLabelText');
+        const phText   = document.getElementById('resetPhraseText');
+        const titleText = document.getElementById('resetModalTitleText');
+        const resetTahunAjaranId = document.getElementById('resetTahunAjaranId');
+
+        if (!modalEl || !form || !input || !btnReset) return;
+
+        let expectedPhrase = '';
+
+        function lockReset() {
+            input.value = '';
+            btnReset.disabled = true;
+        }
+
+        document.querySelectorAll('[data-reset-route]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                expectedPhrase = (btn.dataset.resetPhrase || '').toUpperCase();
+                form.setAttribute('action', btn.dataset.resetRoute);
+                lblText.textContent = btn.dataset.resetLabel || 'seluruh data';
+                phText.textContent  = expectedPhrase;
+                if (titleText) titleText.textContent = btn.dataset.resetTitle || 'Konfirmasi Hapus Masal Data';
+                if (resetTahunAjaranId) {
+                    const select = document.getElementById('selectTahunAjaran');
+                    resetTahunAjaranId.value = select ? select.value : '{{ $tahunAktif->id ?? '' }}';
+                }
+                lockReset();
+            });
+        });
+
+        input.addEventListener('input', function () {
+            btnReset.disabled = this.value.trim().toUpperCase() !== expectedPhrase;
+        });
+
+        modalEl.addEventListener('hidden.bs.modal', lockReset);
+    })();
 </script>
 @endpush

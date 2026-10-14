@@ -265,7 +265,7 @@
     <div class="card border-0 rounded-4 shadow-sm">
         @php $rows = $tab === 'Senin-Kamis' ? $seninKamis : $jumat; @endphp
 
-        <div class="card-header bg-white border-0 pt-4 pb-0 px-4">
+        <div class="card-header bg-white border-0 p-4 sm:p-6 pb-0 sm:pb-0">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
                 <div class="d-flex align-items-center gap-2">
                     <div class="rounded-2 d-flex align-items-center justify-content-center"
@@ -358,17 +358,20 @@
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
                             <button type="button" id="btnBulkBatal"
-                                    class="btn btn-sm btn-light border rounded-3 fw-semibold"
+                                    class="btn btn-sm btn-light border rounded-3 fw-semibold pointer-events-none opacity-50"
+                                    disabled
                                     style="font-size: 0.78rem;">
                                 <i class="bi bi-x-lg me-1"></i> Batal
                             </button>
                             <button type="button" id="btnBulkHapus"
-                                    class="btn btn-sm btn-outline-danger rounded-3 fw-semibold"
+                                    class="btn btn-sm btn-outline-danger rounded-3 fw-semibold pointer-events-none opacity-50"
+                                    disabled
                                     style="font-size: 0.78rem;">
                                 <i class="bi bi-trash3-fill me-1"></i> Hapus Terpilih
                             </button>
                             <button type="button" id="btnBulkEdit"
-                                    class="btn btn-sm btn-primary rounded-3 fw-semibold"
+                                    class="btn btn-sm btn-primary rounded-3 fw-semibold pointer-events-none opacity-50"
+                                    disabled
                                     style="font-size: 0.78rem;">
                                 <i class="bi bi-pencil-fill me-1"></i> Edit Terpilih
                             </button>
@@ -377,11 +380,11 @@
                 </div>
 
                 <div class="table-responsive overflow-x-auto w-full px-2">
-                    <table class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem; min-width: 720px;">
+                    <table id="tableMasterJam" class="table table-hover align-middle mb-0 min-w-full" style="font-size: 0.9rem; min-width: 720px;">
                         <thead style="background: #f8fafc;">
                             <tr>
                                 <th class="ps-4 pe-2 py-3 align-middle" style="width: 56px;">
-                                    <input type="checkbox" id="select-all" class="form-check-input" title="Pilih semua jam pelajaran" style="cursor: pointer;">
+                                    <input type="checkbox" id="select-all" class="form-check-input check-all" title="Pilih semua jam pelajaran" style="cursor: pointer;">
                                 </th>
                                 <th class="ps-4 py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #ffffff; white-space: nowrap; width: 130px;">Jam Ke-</th>
                                 <th class="py-3" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: #64748b; width: 180px;">Rentang Waktu</th>
@@ -504,7 +507,7 @@
 {{-- ===================== CARD PENGATURAN JAM PULANG PER TINGKAT ===================== --}}
 <div class="container-fluid px-0 mt-4">
     <div class="card border-0 rounded-4 shadow-sm mb-4">
-        <div class="card-header bg-white border-0 pt-4 pb-3 px-4">
+        <div class="card-header bg-white border-0 p-4 sm:p-6 pb-3 sm:pb-3">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <div class="d-flex align-items-center gap-2">
                     <div class="rounded-2 d-flex align-items-center justify-content-center"
@@ -527,7 +530,7 @@
             </div>
         </div>
 
-        <div class="card-body px-4 pb-4 pt-2">
+        <div class="card-body p-4 sm:p-6 pt-2 sm:pt-2">
             <form method="POST" action="{{ route('admin.jam-pulang.upsert') }}" id="formJamPulang">
                 @csrf
                 <input type="hidden" name="redirect_tab" value="{{ $tab }}">
@@ -583,8 +586,8 @@
                                 @php
                                     $maxAvailable = $maxByShift[$ctx['id']][$kHari] ?? 0;
                                 @endphp
-                                <div class="col-md-6">
-                                    <div class="p-3 rounded-3 border bg-light-subtle" style="background-color: #fafafa;">
+                                <div class="col-12 col-md-6">
+                                    <div class="p-4 sm:p-6 rounded-3 border bg-light-subtle" style="background-color: #fafafa;">
                                         <div class="d-flex align-items-center gap-2 mb-3">
                                             <i class="bi {{ $kMeta['icon'] }} text-primary"></i>
                                             <span class="fw-bold text-dark" style="font-size: 0.9rem;">{{ $kMeta['label'] }}</span>
@@ -606,7 +609,9 @@
                                             @foreach($tingkatList as $tingkat)
                                                 @php
                                                     $key       = "{$ctx['id']}|{$kHari}|{$tingkat}";
-                                                    $savedMax  = $jamPulangSettings->get($key)?->max_jam_ke;
+                                                    $savedSetting = $jamPulangSettings->get($key);
+                                                    $savedMax  = $savedSetting?->max_jam_ke;
+                                                    $savedPkl  = $savedSetting?->mode_pulang === 'pkl';
                                                 @endphp
                                                 <div class="d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 gap-sm-3 p-2 rounded-3 bg-white border">
                                                     <div class="d-flex align-items-center gap-2 w-full">
@@ -622,7 +627,9 @@
                                                               data-kategori="{{ $kHari }}"
                                                               data-tingkat="{{ $tingkat }}"
                                                               style="font-size: 0.72rem;">
-                                                            @if($savedMax)
+                                                            @if($savedPkl)
+                                                                <span class="badge text-bg-warning rounded-pill">PKL / DU-DI</span>
+                                                            @elseif($savedMax !== null)
                                                                 <span class="badge text-bg-danger rounded-pill">Batas: Jam {{ $savedMax }}</span>
                                                             @else
                                                                 <span class="badge text-bg-info rounded-pill">Semua Slot</span>
@@ -636,11 +643,14 @@
                                                                 data-shift="{{ $ctx['id'] }}"
                                                                 data-kategori="{{ $kHari }}"
                                                                 data-tingkat="{{ $tingkat }}"
-                                                                data-initial="{{ $savedMax ?: '' }}"
+                                                                data-shift-id="{{ $ctx['id'] }}"
+                                                                data-kategori-hari="{{ $kHari }}"
+                                                                data-initial="{{ $savedPkl ? 'pkl' : ($savedMax ?? '') }}"
                                                                 style="font-size: 0.82rem;">
-                                                            <option value="">— Tidak Dibatasi (semua slot aktif) —</option>
+                                                            <option value="" {{ !$savedPkl && $savedMax === null ? 'selected' : '' }}>— Tidak Dibatasi (semua slot aktif) —</option>
+                                                            <option value="pkl" {{ $savedPkl ? 'selected' : '' }}>Full Day PKL / Industri</option>
                                                             @for($j = 1; $j <= $maxAvailable; $j++)
-                                                                <option value="{{ $j }}" {{ $savedMax == $j ? 'selected' : '' }}>
+                                                                <option value="{{ $j }}" {{ !$savedPkl && $savedMax == $j ? 'selected' : '' }}>
                                                                     Jam Ke-{{ $j }}
                                                                     @if($j == $maxAvailable) (Jam Terakhir) @endif
                                                                 </option>
@@ -674,50 +684,50 @@
 </div>
 
     <div class="card border-0 rounded-4 shadow-sm">
-        <div class="card-body px-4 pb-4 pt-2">
+        <div class="card-body p-4 sm:p-6 pt-3 sm:pt-4">
             <form method="POST" action="{{ route('admin.agenda-rutin.upsert') }}" id="formAgendaRutin">
                 @csrf
                 <input type="hidden" name="redirect_tab" value="{{ $tab }}">
                 <input type="hidden" name="redirect_shift" value="{{ $selectedShiftId ?? '' }}">
                 <input type="hidden" name="redirect_ta" value="{{ $selectedTahunAjaran?->id ?? '' }}">
 
-                {{-- Grid Layout: 2 Kolom Berdampingan --}}
+                {{-- Grid Layout: 2 Kolom Berdampingan (1 kolom di mobile, 2 kolom di tablet/desktop) --}}
                 <div class="row g-4">
                     {{-- Kolom Kiri: Pengaturan Upacara Bendera (Hari Senin) --}}
-                    <div class="col-12 col-lg-6">
+                    <div class="col-12 col-md-6">
                         {{-- Fieldset Guard Untuk Setiap Kolom --}}
-                        <fieldset class="border-0 p-0 m-0">
-                            {{-- Konten Card Kiri: Upacara Bendera --}}
-                                <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
-                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="rounded-2 d-flex align-items-center justify-content-center text-white"
-                                                 style="width: 36px; height: 36px; background: linear-gradient(135deg,#3b82f6,#1d4ed8);">
-                                                <span style="font-size: 1.1rem;">🇮🇩</span>
-                                            </div>
-                                            <div>
-                                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
-                                                    Pengaturan Upacara Bendera (Khusus Hari Senin)
-                                                </h6>
-                                                <div class="text-muted" style="font-size: 0.75rem;">
-                                                    Hari Senin (Locked Global)
-                                                </div>
-                                                @if($selectedShift)
-                                                    <span class="badge rounded-pill px-2 py-1 mt-1 d-inline-flex align-items-center gap-1"
-                                                          style="font-size: 0.65rem; background-color: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd;">
-                                                        <i class="bi bi-arrow-repeat"></i> Pengaturan khusus untuk {{ $selectedShift->nama_shift }}
-                                                    </span>
-                                                @else
-                                                    <span class="badge rounded-pill px-2 py-1 mt-1 d-inline-flex align-items-center gap-1"
-                                                          style="font-size: 0.65rem; background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">
-                                                        <i class="bi bi-globe2"></i> Berlaku global untuk semua kelas
-                                                    </span>
-                                                @endif
-                                            </div>
+                        <fieldset class="border-0 p-0 m-0 h-100">
+                            <div class="p-4 sm:p-6 rounded-3 border bg-light-subtle h-100" style="background-color: #fafafa;">
+                                {{-- Header Kolom Kiri: Upacara Bendera --}}
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-2 d-flex align-items-center justify-content-center text-white"
+                                             style="width: 36px; height: 36px; background: linear-gradient(135deg,#3b82f6,#1d4ed8);">
+                                            <span style="font-size: 1.1rem;">🇮🇩</span>
                                         </div>
-                                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                                            @include('partials.testing-badge', ['record' => isset($agendaSenin) ? $agendaSenin : null])
-                                            <span id="badgeStatusSenin"
+                                        <div>
+                                            <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
+                                                Pengaturan Upacara Bendera (Khusus Hari Senin)
+                                            </h6>
+                                            <div class="text-muted" style="font-size: 0.75rem;">
+                                                Hari Senin (Locked Global)
+                                            </div>
+                                            @if($selectedShift)
+                                                <span class="badge rounded-pill px-2 py-1 mt-1 d-inline-flex align-items-center gap-1"
+                                                      style="font-size: 0.65rem; background-color: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd;">
+                                                    <i class="bi bi-arrow-repeat"></i> Pengaturan khusus untuk {{ $selectedShift->nama_shift }}
+                                                </span>
+                                            @else
+                                                <span class="badge rounded-pill px-2 py-1 mt-1 d-inline-flex align-items-center gap-1"
+                                                      style="font-size: 0.65rem; background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">
+                                                    <i class="bi bi-globe2"></i> Berlaku global untuk semua kelas
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        @include('partials.testing-badge', ['record' => isset($agendaSenin) ? $agendaSenin : null])
+                                        <span id="badgeStatusSenin"
                                               class="badge {{ (isset($agendaSenin) && $agendaSenin->is_active) ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle' }} rounded-pill px-3 py-1"
                                               style="font-size: 0.72rem;">
                                             @if(isset($agendaSenin) && $agendaSenin->is_active)
@@ -726,7 +736,6 @@
                                                 ○ Non-Aktif
                                             @endif
                                         </span>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -745,9 +754,13 @@
                                         <select name="agenda[Senin][jam_ke]" id="jamKeSenin" class="form-select rounded-3" style="font-size: 0.875rem;" {{ $agendaSeninLocked ? 'disabled' : '' }}>
                                             @php
                                                 $jamKeSeninSelected = old('agenda.Senin.jam_ke', $agendaSenin?->jam_ke);
+                                                $jamSeninTersedia = $jamOptionsSenin->contains(fn ($jam) => (int) $jam->jam_ke === (int) $jamKeSeninSelected);
                                             @endphp
                                             @if($agendaSenin === null)
                                                 <option value="" {{ $jamKeSeninSelected === null ? 'selected' : '' }}>— Pilih Jam Ke- untuk shift ini —</option>
+                                            @endif
+                                            @if($jamKeSeninSelected && ! $jamSeninTersedia)
+                                                <option value="{{ $jamKeSeninSelected }}" selected>Jam Ke-{{ $jamKeSeninSelected }} (tersimpan)</option>
                                             @endif
                                             @forelse($jamOptionsSenin as $jam)
                                                 <option value="{{ $jam->jam_ke }}" {{ $jamKeSeninSelected == $jam->jam_ke ? 'selected' : '' }}>
@@ -777,50 +790,51 @@
                                     Mengunci slot jam ini secara otomatis di seluruh kelas untuk Upacara Bendera pada hari Senin.
                                 </div>
 
-                                <div id="warningSenin" class="small mb-3 p-2 rounded-3 text-warning-emphasis d-none" style="font-size: 0.78rem; background-color: #fff8e1; border: 1px solid #ffe082;">
+                                <div id="warningSenin" class="small mb-0 p-2 rounded-3 text-warning-emphasis d-none" style="font-size: 0.78rem; background-color: #fff8e1; border: 1px solid #ffe082;">
                                     <i class="bi bi-exclamation-triangle-fill me-1"></i> ⚠️ Ada perubahan yang belum disimpan
                                 </div>
-                            </fieldset>
+                            </div>
+                        </fieldset>
                     </div>
 
                     {{-- Kolom Kanan: Pengaturan Pembiasaan (Hari Jumat) --}}
-                    <div class="col-12 col-lg-6">
+                    <div class="col-12 col-md-6">
                         {{-- Fieldset Guard Untuk Setiap Kolom --}}
-                        <fieldset class="border-0 p-0 m-0">
-                            {{-- Konten Card Kanan: Pembiasaan --}}
+                        <fieldset class="border-0 p-0 m-0 h-100">
+                            <div class="p-4 sm:p-6 rounded-3 border bg-light-subtle h-100" style="background-color: #fafafa;">
                                 @php
                                     $agendaJumatLocked = (isset($agendaJumat) && $agendaJumat->is_testing_data && !auth()->user()?->isPetugasIt());
                                 @endphp
-                                <div class="card-header bg-white border-0 pt-4 pb-2 px-4">
-                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="rounded-2 d-flex align-items-center justify-content-center text-white"
-                                                 style="width: 36px; height: 36px; background: linear-gradient(135deg,#0284c7,#0369a1);">
-                                                <span style="font-size: 1.1rem;">🤲</span>
-                                            </div>
-                                            <div>
-                                                <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
-                                                    Pengaturan Pembiasaan (Khusus Hari Jumat)
-                                                </h6>
-                                                <div class="text-muted" style="font-size: 0.75rem;">
-                                                    Hari Jumat (Locked Global)
-                                                </div>
-                                                @if($selectedShift)
-                                                    <span class="badge rounded-pill px-2 py-1 mt-1 d-inline-flex align-items-center gap-1"
-                                                          style="font-size: 0.65rem; background-color: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd;">
-                                                        <i class="bi bi-arrow-repeat"></i> Pengaturan khusus untuk {{ $selectedShift->nama_shift }}
-                                                    </span>
-                                                @else
-                                                    <span class="badge rounded-pill px-2 py-1 mt-1 d-inline-flex align-items-center gap-1"
-                                                          style="font-size: 0.65rem; background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">
-                                                        <i class="bi bi-globe2"></i> Berlaku global untuk semua kelas
-                                                    </span>
-                                                @endif
-                                            </div>
+                                {{-- Header Kolom Kanan: Pembiasaan --}}
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-2 d-flex align-items-center justify-content-center text-white"
+                                             style="width: 36px; height: 36px; background: linear-gradient(135deg,#0284c7,#0369a1);">
+                                            <span style="font-size: 1.1rem;">🤲</span>
                                         </div>
-                                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                                            @include('partials.testing-badge', ['record' => isset($agendaJumat) ? $agendaJumat : null])
-                                            <span id="badgeStatusJumat"
+                                        <div>
+                                            <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.95rem;">
+                                                Pengaturan Pembiasaan (Khusus Hari Jumat)
+                                            </h6>
+                                            <div class="text-muted" style="font-size: 0.75rem;">
+                                                Hari Jumat (Locked Global)
+                                            </div>
+                                            @if($selectedShift)
+                                                <span class="badge rounded-pill px-2 py-1 mt-1 d-inline-flex align-items-center gap-1"
+                                                      style="font-size: 0.65rem; background-color: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd;">
+                                                    <i class="bi bi-arrow-repeat"></i> Pengaturan khusus untuk {{ $selectedShift->nama_shift }}
+                                                </span>
+                                            @else
+                                                <span class="badge rounded-pill px-2 py-1 mt-1 d-inline-flex align-items-center gap-1"
+                                                      style="font-size: 0.65rem; background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0;">
+                                                    <i class="bi bi-globe2"></i> Berlaku global untuk semua kelas
+                                                </span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        @include('partials.testing-badge', ['record' => isset($agendaJumat) ? $agendaJumat : null])
+                                        <span id="badgeStatusJumat"
                                               class="badge {{ (isset($agendaJumat) && $agendaJumat->is_active) ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-secondary-subtle text-secondary border border-secondary-subtle' }} rounded-pill px-3 py-1"
                                               style="font-size: 0.72rem;">
                                             @if(isset($agendaJumat) && $agendaJumat->is_active)
@@ -829,7 +843,6 @@
                                                 ○ Non-Aktif
                                             @endif
                                         </span>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -844,9 +857,13 @@
                                         <select name="agenda[Jumat][jam_ke]" id="jamKeJumat" class="form-select rounded-3" style="font-size: 0.875rem;" {{ $agendaJumatLocked ? 'disabled' : '' }}>
                                             @php
                                                 $jamKeJumatSelected = old('agenda.Jumat.jam_ke', $agendaJumat?->jam_ke);
+                                                $jamJumatTersedia = $jamOptionsJumat->contains(fn ($jam) => (int) $jam->jam_ke === (int) $jamKeJumatSelected);
                                             @endphp
                                             @if($agendaJumat === null)
                                                 <option value="" {{ $jamKeJumatSelected === null ? 'selected' : '' }}>— Pilih Jam Ke- untuk shift ini —</option>
+                                            @endif
+                                            @if($jamKeJumatSelected && ! $jamJumatTersedia)
+                                                <option value="{{ $jamKeJumatSelected }}" selected>Jam Ke-{{ $jamKeJumatSelected }} (tersimpan)</option>
                                             @endif
                                             @forelse($jamOptionsJumat as $jam)
                                                 <option value="{{ $jam->jam_ke }}" {{ $jamKeJumatSelected == $jam->jam_ke ? 'selected' : '' }}>
@@ -876,10 +893,11 @@
                                     Mengunci slot jam ini secara otomatis di seluruh kelas untuk Pembiasaan (Yasinan/Senam/Jumat Bersih) pada hari Jumat.
                                 </div>
 
-                                <div id="warningJumat" class="small mb-3 p-2 rounded-3 text-warning-emphasis d-none" style="font-size: 0.78rem; background-color: #fff8e1; border: 1px solid #ffe082;">
+                                <div id="warningJumat" class="small mb-0 p-2 rounded-3 text-warning-emphasis d-none" style="font-size: 0.78rem; background-color: #fff8e1; border: 1px solid #ffe082;">
                                     <i class="bi bi-exclamation-triangle-fill me-1"></i> ⚠️ Ada perubahan yang belum disimpan
                                 </div>
-                            </fieldset>
+                            </div>
+                        </fieldset>
                     </div>
                 </div>
 
@@ -896,7 +914,6 @@
                 </div>
             </form>
         </div>
-    </div>
     </div>
 </div>
 
@@ -1589,21 +1606,359 @@
     }
 </style>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    // Global variable for current bulk edit groups
+    let currentMasterJamBulkGroups = [];
 
-        // Peta jatah tingkatan kelas -> shift aktif (dari server), dipakai untuk
-        // memberi peringatan/disabled agar tidak ada dua shift aktif memakai
-        // tingkatan kelas yang sama (mencegah overlapping).
+    // Helper: Ambil semua checkbox item
+    function getAllBulkCheckboxes() {
+        return Array.prototype.slice.call(document.querySelectorAll('.jp-checkbox'));
+    }
+
+    // Helper: Ambil checkbox yang dicentang
+    function getSelectedBulkCheckboxes() {
+        return Array.prototype.slice.call(document.querySelectorAll('.jp-checkbox:checked'));
+    }
+
+    // Helper: Ambil ID terpilih
+    function getSelectedBulkIds() {
+        return getSelectedBulkCheckboxes().map(function (cb) { return cb.value; });
+    }
+
+    // Sinkronisasi status Bulk Action Bar, counter, tombol, dan checkbox Select-All
+    function syncBulkActions() {
+        const allBoxes = getAllBulkCheckboxes();
+        const checkedBoxes = getSelectedBulkCheckboxes();
+        const count = checkedBoxes.length;
+
+        // Update Select All Checkbox
+        const selectAll = document.getElementById('select-all');
+        if (selectAll) {
+            selectAll.checked = allBoxes.length > 0 && count === allBoxes.length;
+            selectAll.indeterminate = count > 0 && count < allBoxes.length;
+        }
+
+        // Update Counter
+        const bulkCount = document.getElementById('bulkCount');
+        if (bulkCount) bulkCount.textContent = count;
+        const selectedCount = document.getElementById('selectedCount');
+        if (selectedCount) selectedCount.textContent = count;
+
+        // Toggle Container Bulk Bar
+        const bulkBar = document.getElementById('bulkActionBar');
+        if (bulkBar) {
+            if (count > 0) {
+                bulkBar.classList.remove('d-none');
+                bulkBar.classList.add('d-flex');
+            } else {
+                bulkBar.classList.add('d-none');
+                bulkBar.classList.remove('d-flex');
+            }
+        }
+
+        // Toggle Action Buttons State & CSS
+        const btnHapus = document.getElementById('btnBulkHapus');
+        const btnEdit  = document.getElementById('btnBulkEdit');
+        const btnBatal = document.getElementById('btnBulkBatal');
+
+        [btnHapus, btnEdit, btnBatal].forEach(function (btn) {
+            if (!btn) return;
+            if (count > 0) {
+                btn.removeAttribute('disabled');
+                btn.disabled = false;
+                btn.classList.remove('disabled', 'pointer-events-none', 'opacity-50');
+            } else {
+                btn.setAttribute('disabled', 'true');
+                btn.disabled = true;
+                btn.classList.add('disabled', 'pointer-events-none', 'opacity-50');
+            }
+        });
+    }
+
+    // Kelompokkan slot tercentang berdasarkan jenis & urutan KBM/istirahat
+    function buildBulkGroups() {
+        const groups = [];
+        getSelectedBulkCheckboxes().forEach(function (cb) {
+            const jenis = cb.getAttribute('data-jenis') || 'kbm';
+            const slot = {
+                id: cb.value,
+                jenis: jenis,
+                jamKe: parseInt(cb.getAttribute('data-jam-ke'), 10),
+                label: cb.getAttribute('data-label')
+                    || (jenis === 'istirahat' ? 'Istirahat' : 'Jam ' + cb.getAttribute('data-jam-ke') + ' (KBM)'),
+                durasi: parseInt(cb.getAttribute('data-durasi'), 10),
+            };
+            const last = groups[groups.length - 1];
+            if (last && last.jenis === jenis) {
+                last.slots.push(slot);
+            } else {
+                groups.push({ jenis: jenis, slots: [slot] });
+            }
+        });
+        return groups;
+    }
+
+    function buildGroupLabel(group) {
+        if (!group || !group.slots || group.slots.length === 0) return '';
+        if (group.slots.length === 1) return group.slots[0].label;
+        if (group.jenis === 'kbm') {
+            const nums = group.slots
+                .map(function (s) { return s.jamKe; })
+                .filter(function (n) { return Number.isFinite(n); })
+                .sort(function (a, b) { return a - b; });
+            if (nums.length > 0) {
+                return 'Jam ' + nums[0] + ' - Jam ' + nums[nums.length - 1] + ' (KBM)';
+            }
+        }
+        return group.slots[0].label + ' - ' + group.slots[group.slots.length - 1].label;
+    }
+
+    function renderBulkGroups(groups) {
+        const bulkGroupList = document.getElementById('bulkGroupList');
+        if (!bulkGroupList) return;
+        bulkGroupList.innerHTML = '';
+
+        groups.forEach(function (group) {
+            const firstDurasi = group.slots[0].durasi;
+            const variatif = group.slots.some(function (s) { return s.durasi !== firstDurasi; });
+
+            const item = document.createElement('div');
+            item.className = 'bulk-group border rounded-3 p-3';
+            item.style.backgroundColor = '#fcfcfd';
+
+            const head = document.createElement('div');
+            head.className = 'd-flex flex-wrap justify-content-between align-items-center gap-2 mb-2';
+            const label = document.createElement('label');
+            label.className = 'fw-semibold text-dark mb-0';
+            label.style.fontSize = '0.82rem';
+            label.textContent = buildGroupLabel(group);
+            const badge = document.createElement('span');
+            badge.className = 'text-muted small';
+            badge.textContent = group.slots.length + ' slot';
+            head.appendChild(label);
+            head.appendChild(badge);
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '1';
+            input.max = '600';
+            input.step = '1';
+            input.autocomplete = 'off';
+            input.required = true;
+            input.className = 'form-control rounded-3 bulk-group-durasi';
+            if (variatif) {
+                input.placeholder = 'Variatif (Isi durasi baru)';
+            } else if (Number.isFinite(firstDurasi)) {
+                input.value = firstDurasi;
+            }
+
+            item.appendChild(head);
+            item.appendChild(input);
+            bulkGroupList.appendChild(item);
+        });
+    }
+
+    // Handler: Batal Pilihan
+    function handleBulkBatalClick() {
+        getAllBulkCheckboxes().forEach(function (checkbox) {
+            checkbox.checked = false;
+        });
+        const selectAll = document.getElementById('select-all');
+        if (selectAll) selectAll.checked = false;
+        syncBulkActions();
+    }
+
+    // Handler: Edit Terpilih
+    function handleBulkEditClick() {
+        const ids = getSelectedBulkIds();
+        if (ids.length === 0) return;
+
+        const modalBulkEdit = document.getElementById('modalBulkEdit');
+        const bulkGroupList = document.getElementById('bulkGroupList');
+        if (!modalBulkEdit || !bulkGroupList) return;
+
+        const lblCount = document.getElementById('bulkEditCount');
+        const lblCountBtn = document.getElementById('bulkEditCountBtn');
+        if (lblCount) lblCount.textContent = ids.length;
+        if (lblCountBtn) lblCountBtn.textContent = ids.length;
+
+        currentMasterJamBulkGroups = buildBulkGroups();
+        renderBulkGroups(currentMasterJamBulkGroups);
+
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalBulkEdit).show();
+        }
+    }
+
+    // Handler: Hapus Terpilih
+    function handleBulkHapusClick() {
+        const ids = getSelectedBulkIds();
+        if (ids.length === 0) return;
+
+        const pesan = 'Hapus ' + ids.length + ' slot jam pelajaran yang dipilih?\n\nTindakan ini tidak dapat dibatalkan.';
+        if (!window.confirm(pesan)) return;
+
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+        const baseUrl = "{{ url('admin/jam-pelajaran') }}";
+
+        const tasks = ids.map(function (id) {
+            return fetch(baseUrl + '/' + encodeURIComponent(id), {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+            }).then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Gagal menghapus slot jam ID ' + id + ' (HTTP ' + response.status + ').');
+                }
+            });
+        });
+
+        Promise.all(tasks)
+            .then(function () {
+                const url = new URL(window.location.href);
+                url.searchParams.set('bulk_deleted', String(ids.length));
+                window.location.href = url.toString();
+            })
+            .catch(function (error) {
+                console.error(error);
+                window.alert(error.message || 'Gagal menghapus slot jam pelajaran.');
+            });
+    }
+
+    // Handler: Form Bulk Edit Submit
+    function handleBulkEditSubmit(event) {
+        const formBulkEdit = event.target;
+        if (!(formBulkEdit instanceof HTMLFormElement) || formBulkEdit.id !== 'formBulkEdit') return;
+
+        event.preventDefault();
+        if (!formBulkEdit.reportValidity()) return;
+
+        const inputs = Array.prototype.slice.call(
+            document.querySelectorAll('#bulkGroupList .bulk-group-durasi')
+        );
+        const durasis = inputs.map(function (input) {
+            return parseInt(input.value, 10);
+        });
+        if (durasis.length === 0 || durasis.some(function (durasi) {
+            return !Number.isFinite(durasi) || durasi < 1 || durasi > 600;
+        })) {
+            window.alert('Harap isi durasi yang valid untuk semua kelompok slot.');
+            return;
+        }
+
+        formBulkEdit.querySelectorAll('input[type="hidden"][name^="updates"]').forEach(function (input) {
+            input.remove();
+        });
+
+        let idx = 0;
+        durasis.forEach(function (durasi, groupIndex) {
+            const group = currentMasterJamBulkGroups[groupIndex];
+            if (!group) return;
+            group.slots.forEach(function (slot) {
+                const idInput = document.createElement('input');
+                idInput.type = 'hidden';
+                idInput.name = 'updates[' + idx + '][id]';
+                idInput.value = slot.id;
+                formBulkEdit.appendChild(idInput);
+
+                const durationInput = document.createElement('input');
+                durationInput.type = 'hidden';
+                durationInput.name = 'updates[' + idx + '][durasi]';
+                durationInput.value = durasi;
+                formBulkEdit.appendChild(durationInput);
+                idx++;
+            });
+        });
+
+        formBulkEdit.submit();
+    }
+
+    // Modal Edit single jam
+    function openEditModal(id, kategoriHari, jamMulai, jamSelesai, jenis, durasi, shiftId) {
+        const form = document.getElementById('formEditJam');
+        if (!form) return;
+        const routeBase = "{{ url('admin/jam-pelajaran') }}";
+        form.action = routeBase + '/' + id;
+
+        const elKategori = document.getElementById('editKategoriHari');
+        const elMulai    = document.getElementById('editJamMulai');
+        const elSelesai  = document.getElementById('editJamSelesai');
+        const elJenis    = document.getElementById('editJenis');
+        const elShift    = document.getElementById('editShiftId');
+        const elDurasi   = document.getElementById('editDurasi');
+
+        if (elKategori) elKategori.value = kategoriHari;
+        if (elMulai) elMulai.value = jamMulai;
+        if (elSelesai) elSelesai.value = jamSelesai;
+        if (elJenis) elJenis.value = jenis;
+        if (elShift) elShift.value = (shiftId !== undefined && shiftId !== null && shiftId !== 0) ? String(shiftId) : '';
+        if (elDurasi) elDurasi.value = durasi !== undefined && durasi !== '' ? durasi : '40';
+
+        const modalEl = document.getElementById('modalEditJam');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        }
+    }
+
+    // Global Event Delegation (Attached ONCE to document)
+    if (!window.__masterJamGlobalDelegationBound) {
+        window.__masterJamGlobalDelegationBound = true;
+
+        // Delegasi checkbox: Select All & JP Checkboxes
+        document.addEventListener('change', function (event) {
+            const target = event.target;
+            if (!(target instanceof HTMLInputElement)) return;
+
+            if (target.id === 'select-all' || target.matches('#select-all, .check-all')) {
+                const itemCheckboxes = getAllBulkCheckboxes();
+                itemCheckboxes.forEach(function (checkbox) {
+                    checkbox.checked = target.checked;
+                });
+                syncBulkActions();
+            } else if (target.matches('.jp-checkbox, .item-checkbox')) {
+                syncBulkActions();
+            }
+        });
+
+        // Delegasi tombol Bulk Action Bar
+        document.addEventListener('click', function (event) {
+            const target = event.target instanceof Element ? event.target : null;
+            if (!target) return;
+
+            if (target.closest('#btnBulkBatal, #btnBatalSelect')) {
+                handleBulkBatalClick();
+            } else if (target.closest('#btnBulkHapus, #btnHapusTerpilih')) {
+                handleBulkHapusClick();
+            } else if (target.closest('#btnBulkEdit, #btnEditTerpilih')) {
+                handleBulkEditClick();
+            }
+        });
+
+        // Delegasi submit form Bulk Edit
+        document.addEventListener('submit', function (event) {
+            if (event.target instanceof HTMLFormElement && event.target.id === 'formBulkEdit') {
+                handleBulkEditSubmit(event);
+            }
+        });
+    }
+
+    function initMasterJamPelajaranPage() {
+        // Inisialisasi status bulk bar saat halaman termuat
+        syncBulkActions();
+
         const activeGradeAllocation = @json($activeGradeAllocation ?? []);
 
+        // Enter key next input pada form Tambah / Edit
         const forms = [
             document.getElementById('formTambahJam'),
             document.getElementById('formEditJam')
         ];
-
         forms.forEach(function (form) {
             if (!form) return;
-
             const inputs = form.querySelectorAll('input:not([type="hidden"]), select');
             inputs.forEach(function (input, index) {
                 input.addEventListener('keydown', function (e) {
@@ -1617,14 +1972,14 @@
             });
         });
 
-        // ===== Auto-fill "Jam Mulai" pada Modal Tambah berdasar slot terakhir =====
+        // Auto-fill Jam Mulai pada Modal Tambah berdasar slot terakhir
         const btnTambahJam     = document.getElementById('btnTambahJam');
         const tambahKategori   = document.getElementById('tambahKategoriHari');
         const tambahJamMulai   = document.getElementById('tambahJamMulai');
+        const modalTambahJam   = document.getElementById('modalTambahJam');
 
         if (btnTambahJam && tambahKategori && tambahJamMulai) {
             const fallbackMulai = { 'Senin-Kamis': '07:00', 'Jumat': '07:00' };
-
             function applyAutoMulai() {
                 const kategori = tambahKategori.value;
                 const value = (kategori === 'Jumat')
@@ -1632,21 +1987,19 @@
                     : (btnTambahJam.dataset.mulaiSenin || fallbackMulai['Senin-Kamis']);
                 tambahJamMulai.value = value;
             }
-
-            // Saat modal dibuka
-            document.getElementById('modalTambahJam').addEventListener('shown.bs.modal', applyAutoMulai);
-
-            // Saat kategori hari diubah di dalam modal
+            if (modalTambahJam) {
+                modalTambahJam.addEventListener('shown.bs.modal', applyAutoMulai);
+            }
             tambahKategori.addEventListener('change', applyAutoMulai);
         }
 
-        // ===== Modal Edit: Two-way real-time kalkulasi Durasi <-> Jam Selesai =====
+        // Modal Edit: Two-way real-time kalkulasi Durasi <-> Jam Selesai
         const editMulai   = document.getElementById('editJamMulai');
         const editSelesai = document.getElementById('editJamSelesai');
         const editDurasi  = document.getElementById('editDurasi');
 
         function minutesToTime(totalMin) {
-            totalMin = ((totalMin % 1440) + 1440) % 1440; // jaga-jaga jika minus/lewat tengah malam
+            totalMin = ((totalMin % 1440) + 1440) % 1440;
             const hh = String(Math.floor(totalMin / 60)).padStart(2, '0');
             const mm = String(totalMin % 60).padStart(2, '0');
             return hh + ':' + mm;
@@ -1659,7 +2012,6 @@
         }
 
         if (editMulai && editSelesai && editDurasi) {
-            // Durasi berubah -> hitung ulang Jam Selesai = Jam Mulai + Durasi
             editDurasi.addEventListener('input', function () {
                 const mulaiMin = timeToMinutes(editMulai.value);
                 const durasi   = parseInt(editDurasi.value, 10);
@@ -1667,7 +2019,6 @@
                 editSelesai.value = minutesToTime(mulaiMin + durasi);
             });
 
-            // Jam Selesai berubah -> hitung ulang Durasi = selisih menit
             editSelesai.addEventListener('change', function () {
                 const mulaiMin   = timeToMinutes(editMulai.value);
                 const selesaiMin = timeToMinutes(editSelesai.value);
@@ -1676,7 +2027,6 @@
                 editDurasi.value = diff;
             });
 
-            // Jam Mulai berubah -> ikut hitung ulang durasi dari Jam Selesai yang ada
             editMulai.addEventListener('change', function () {
                 const mulaiMin   = timeToMinutes(editMulai.value);
                 const selesaiMin = timeToMinutes(editSelesai.value);
@@ -1686,12 +2036,11 @@
             });
         }
 
-        // ===== Generate Preset: Repeater Istirahat Dinamis =====
+        // Generate Preset: Repeater Istirahat Dinamis
         const presetForm       = document.getElementById('formGeneratePreset');
         const presetKategori   = document.getElementById('presetKategoriHari');
-        const btnTambahIstirahat = document.getElementById('btnTambahIstirahat');
         const istirahatRows    = document.getElementById('istirahatRows');
-        let istirahatIndex     = 0;
+        const modalPreset      = document.getElementById('modalGeneratePreset');
 
         const presetDefaults = {
             'Senin-Kamis': { durasi: 40, jumlah: 13 },
@@ -1699,7 +2048,7 @@
         };
 
         function applyPresetDefaults() {
-            if (!presetKategori) return;
+            if (!presetKategori || !presetForm) return;
             const d = presetDefaults[presetKategori.value] || presetDefaults['Senin-Kamis'];
             const durasiInput = presetForm.querySelector('[name="durasi_jp"]');
             const jumlahInput = presetForm.querySelector('[name="jumlah_jp"]');
@@ -1707,52 +2056,9 @@
             if (jumlahInput && !jumlahInput.dataset.touched) jumlahInput.value = d.jumlah;
         }
 
-        function addIstirahatRow(afterJam, duration) {
-            if (!istirahatRows) return;
-            istirahatIndex++;
-
-            const jumlahJp = parseInt((presetForm.querySelector('[name="jumlah_jp"]')?.value) || 13, 10);
-
-            let options = '<option value="">— Pilih Jam —</option>';
-            for (let j = 1; j <= jumlahJp; j++) {
-                options += '<option value="' + j + '"' + (String(afterJam) === String(j) ? ' selected' : '') + '>Setelah Jam Ke-' + j + '</option>';
-            }
-
-            const row = document.createElement('div');
-            row.className = 'istirahat-row d-flex align-items-end gap-2 p-2 rounded-3 border bg-light-subtle';
-            row.dataset.index = istirahatIndex;
-            row.innerHTML =
-                '<div class="flex-grow-1">' +
-                    '<label class="form-label fw-semibold mb-1" style="font-size:0.75rem;">Setelah Jam Ke-</label>' +
-                    '<select name="breaks[' + istirahatIndex + '][after_jam]" class="form-select form-select-sm rounded-3">' + options + '</select>' +
-                '</div>' +
-                '<div style="width:130px;">' +
-                    '<label class="form-label fw-semibold mb-1" style="font-size:0.75rem;">Durasi (menit)</label>' +
-                    '<input type="number" name="breaks[' + istirahatIndex + '][duration]" class="form-control form-control-sm rounded-3" min="1" max="120" value="' + (duration || 15) + '">' +
-                '</div>' +
-                '<div>' +
-                    '<button type="button" class="btn btn-sm btn-outline-danger rounded-3" title="Hapus Baris">' +
-                        '<i class="bi bi-trash3"></i>' +
-                    '</button>' +
-                '</div>';
-
-            // Hapus baris
-            row.querySelector('button').addEventListener('click', function () {
-                row.remove();
-                // nilai awal selected tidak lagi terdaftar untuk btn tambah; biarkan blank -> kosongkan baris lain? tidak perlu
-            });
-
-            istirahatRows.appendChild(row);
-        }
-
-        if (presetForm && presetKategori && btnTambahIstirahat && istirahatRows) {
+        if (presetForm && presetKategori && istirahatRows) {
             presetKategori.addEventListener('change', applyPresetDefaults);
 
-            btnTambahIstirahat.addEventListener('click', function () {
-                addIstirahatRow('', 15);
-            });
-
-            // Saat jumlah JP berubah, perbarui opsi "Setelah Jam Ke-" pada baris yang ada
             const jumlahInput = presetForm.querySelector('[name="jumlah_jp"]');
             if (jumlahInput) {
                 jumlahInput.addEventListener('change', function () {
@@ -1760,6 +2066,7 @@
                     const newJumlah = parseInt(jumlahInput.value, 10) || 1;
                     istirahatRows.querySelectorAll('.istirahat-row').forEach(function (row) {
                         const sel = row.querySelector('select[name$="[after_jam]"]');
+                        if (!sel) return;
                         const current = sel.value;
                         let opts = '<option value="">— Pilih Jam —</option>';
                         for (let j = 1; j <= newJumlah; j++) {
@@ -1770,24 +2077,22 @@
                 });
             }
 
-            // Saat modal dibuka: atur default sesuai kategori terpilih & kosongkan istirahat
-            document.getElementById('modalGeneratePreset').addEventListener('shown.bs.modal', function () {
-                presetKategori.value = "{{ $tab }}";
-                const durasiInput = presetForm.querySelector('[name="durasi_jp"]');
-                const jumlahInput = presetForm.querySelector('[name="jumlah_jp"]');
-                const jamMulaiInput = presetForm.querySelector('[name="jam_mulai"]');
-                if (durasiInput) durasiInput.dataset.touched = '';
-                if (jumlahInput) jumlahInput.dataset.touched = '';
-                applyPresetDefaults();
-                // Nilai awal Jam Mulai mengikuti Jam Mulai Utama shift aktif (07:00 di Mode Global).
-                if (jamMulaiInput) {
-                    jamMulaiInput.value = "{{ $selectedShift?->jam_mulai ? substr($selectedShift->jam_mulai, 0, 5) : '07:00' }}";
-                }
-                istirahatRows.innerHTML = '';
-                istirahatIndex = 0;
-            });
+            if (modalPreset) {
+                modalPreset.addEventListener('shown.bs.modal', function () {
+                    presetKategori.value = "{{ $tab }}";
+                    const durasiInput = presetForm.querySelector('[name="durasi_jp"]');
+                    const jumlahInput = presetForm.querySelector('[name="jumlah_jp"]');
+                    const jamMulaiInput = presetForm.querySelector('[name="jam_mulai"]');
+                    if (durasiInput) durasiInput.dataset.touched = '';
+                    if (jumlahInput) jumlahInput.dataset.touched = '';
+                    applyPresetDefaults();
+                    if (jamMulaiInput) {
+                        jamMulaiInput.value = "{{ $selectedShift?->jam_mulai ? substr($selectedShift->jam_mulai, 0, 5) : '07:00' }}";
+                    }
+                    istirahatRows.innerHTML = '';
+                });
+            }
 
-            // Cek dampak pengurangan slot sebelum submit: peringatkan jika ada jadwal ter-plot
             presetForm.addEventListener('submit', function (e) {
                 e.preventDefault();
                 if (!presetForm.reportValidity()) return;
@@ -1819,8 +2124,7 @@
             });
         }
 
-        // ===== Badge Status Dinamis & Dirty State: Upacara (Senin) & Pembiasaan (Jumat) =====
-        // Satu form gabungan menyimpan kedua pengaturan sekaligus (satu tombol: Simpan Upacara & Pembiasaan).
+        // Agenda Rutin (Upacara & Pembiasaan)
         const agendaForm = document.getElementById('formAgendaRutin');
         const agendaButton = document.getElementById('btnSimpanAgenda');
         const warningAgendaGlobal = document.getElementById('warningAgendaGlobal');
@@ -1845,14 +2149,14 @@
         const BADGE_DIRTY   = 'badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1';
 
         function badgeText(cfg) {
+            if (!cfg || !cfg.toggle) return '○ Non-Aktif';
             return cfg.toggle.checked
-                ? (cfg.select.value
+                ? (cfg.select && cfg.select.value
                     ? '● Aktif (Terkunci Jam Ke-' + cfg.select.value + ')'
                     : '● Aktif (harap pilih Jam Ke-)')
                 : '○ Non-Aktif';
         }
 
-        // Tampilkan badge sesuai status + dirty state
         function renderBadge(key) {
             const cfg = agendaConfigs[key];
             if (!cfg || !cfg.badge) return;
@@ -1863,20 +2167,18 @@
                 cfg.badge.className = BADGE_DIRTY;
                 cfg.badge.textContent = '🟡 Belum Disimpan';
             } else {
-                cfg.badge.className = cfg.toggle.checked ? BADGE_ACTIVE : BADGE_INACTIVE;
+                const isActive = cfg.toggle ? cfg.toggle.checked : false;
+                cfg.badge.className = isActive ? BADGE_ACTIVE : BADGE_INACTIVE;
                 cfg.badge.textContent = badgeText(cfg);
             }
 
-            // Peringatan dalam kartu
             if (cfg.warning) cfg.warning.classList.toggle('d-none', !cfg.dirty);
         }
 
-        // Highlight tombol simpan bersama + peringatan global bila ada kartu yang berubah
         function renderAgendaButton() {
             if (!agendaButton) return;
-
             const anyDirty = Object.keys(agendaConfigs).some(function (key) {
-                return agendaConfigs[key].dirty;
+                return !!agendaConfigs[key].dirty;
             });
 
             if (!agendaButton.dataset.originalClass) {
@@ -1895,7 +2197,6 @@
             if (warningAgendaGlobal) warningAgendaGlobal.classList.toggle('d-none', !anyDirty);
         }
 
-        // Simpan nilai awal (initial state) dan render ulang
         function captureInitial(key) {
             const cfg = agendaConfigs[key];
             if (!cfg || !cfg.toggle || !cfg.select) return;
@@ -1913,7 +2214,6 @@
             renderAgendaButton();
         }
 
-        // Deteksi perubahan (dirty state) pada dropdown jam & toggle
         function bindAgendaCard(key) {
             const cfg = agendaConfigs[key];
             if (!cfg || !cfg.toggle || !cfg.select) return;
@@ -1927,12 +2227,11 @@
             cfg.select.addEventListener('change', checkDirty);
         }
 
-        // Reset state kedua kartu saat submit form gabungan (POST/reload) sebelum dikirim
         if (agendaForm) {
             agendaForm.addEventListener('submit', function () {
                 Object.keys(agendaConfigs).forEach(function (key) {
                     const cfg = agendaConfigs[key];
-                    if (!cfg) return;
+                    if (!cfg || !cfg.toggle || !cfg.select) return;
                     cfg.initialToggle = cfg.toggle.checked;
                     cfg.initialSelect = cfg.select.value;
                     cfg.dirty = false;
@@ -1942,127 +2241,12 @@
             });
         }
 
-        // Inisialisasi: simpan nilai awal untuk kedua kartu
         Object.keys(agendaConfigs).forEach(function (key) {
             captureInitial(key);
             bindAgendaCard(key);
         });
 
-        // ===== Pengaturan Jam Pulang: Badge Sync + Auto-Save =====
-        const jpForm      = document.getElementById('formJamPulang');
-        const jpIndicator = document.getElementById('jpSaveIndicator');
-        const csrfToken   = (function () {
-            const meta = document.querySelector('meta[name="csrf-token"]');
-            return meta ? meta.getAttribute('content') : '';
-        })();
-
-        function renderJamPulangBadges() {
-            document.querySelectorAll('.jam-pulang-select').forEach(function (select) {
-                const shift    = select.dataset.shift;
-                const kategori = select.dataset.kategori;
-                const tingkat  = select.dataset.tingkat;
-                const badge = document.querySelector('.jam-pulang-badge[data-shift="' + shift + '"][data-kategori="' + kategori + '"][data-tingkat="' + tingkat + '"]');
-                if (!badge) return;
-
-                const val = select.value;
-                badge.innerHTML = val
-                    ? '<span class="badge text-bg-danger rounded-pill">Batas: Jam ' + val + '</span>'
-                    : '<span class="badge text-bg-info rounded-pill">Semua Slot</span>';
-            });
-        }
-
-        function setJpIndicator(visible) {
-            if (!jpIndicator) return;
-            jpIndicator.classList.toggle('d-none', !visible);
-            jpIndicator.classList.toggle('d-inline-flex', visible);
-        }
-
-        // Kirim seluruh form Jam Pulang (semua tingkat/kategori) dalam satu request AJAX.
-        // Nilai yang baru dipilih ikut tersimpan; pengaturan lainnya tetap utuh di server.
-        async function autoSaveJamPulang(select) {
-            if (!jpForm) return;
-
-            const tingkat    = select.dataset.tingkat || '';
-            const kategori   = select.dataset.kategori || '';
-            const valueLabel = select.value ? 'Jam Ke-' + select.value : 'tidak dibatasi';
-            const hariLabel  = kategori === 'Jumat' ? ' (hari Jumat)' : '';
-
-            setJpIndicator(true);
-
-            try {
-                const res = await fetch(jpForm.action, {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                    body: new FormData(jpForm),
-                });
-
-                if (!res.ok) {
-                    let msg = 'Gagal menyimpan pengaturan jam pulang.';
-                    try {
-                        const j = await res.json();
-                        if (j.message) msg = j.message;
-                    } catch (e) { /* body non-JSON (mis. halaman error) */ }
-                    select.value = select.dataset.initial; // kembalikan pilihan
-                    renderJamPulangBadges();
-                    showToast(msg, 'danger');
-                    return;
-                }
-
-                select.dataset.initial = select.value;
-                renderJamPulangBadges();
-                showToast('Batas jam pulang Kelas ' + tingkat + hariLabel + ' berhasil diperbarui (' + valueLabel + ').', 'success');
-            } catch (err) {
-                select.value = select.dataset.initial;
-                renderJamPulangBadges();
-                showToast('Gagal terhubung ke server. Pengaturan tidak tersimpan.', 'danger');
-            } finally {
-                setJpIndicator(false);
-            }
-        }
-
-        if (jpForm) {
-            document.querySelectorAll('.jam-pulang-select').forEach(function (select) {
-                // Simpan nilai awal (initial state) dari DB
-                select.dataset.initial = select.value;
-
-                select.addEventListener('change', function () {
-                    renderJamPulangBadges();
-                    autoSaveJamPulang(select);
-                });
-            });
-
-            renderJamPulangBadges();
-        }
-
-        // ===== Toast feedback (Auto-Save Jam Pulang & aksi simpan) =====
-        function showToast(message, type) {
-            const container = document.getElementById('toastJamPelajaranContainer');
-            if (!container || typeof bootstrap === 'undefined') {
-                window.alert(message);
-                return;
-            }
-            const color = (type === 'danger' || type === 'error') ? 'danger' : (type === 'success' ? 'success' : 'warning');
-            const icon = color === 'danger' ? 'bi-exclamation-triangle-fill'
-                : (color === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill');
-            const el = document.createElement('div');
-            el.className = 'toast align-items-center text-bg-' + color + ' border-0 shadow rounded-3';
-            el.setAttribute('role', 'alert');
-            el.setAttribute('aria-live', 'assertive');
-            el.setAttribute('aria-atomic', 'true');
-            el.innerHTML = '<div class="d-flex"><div class="toast-body fw-semibold" style="font-size:0.82rem;">' +
-                '<i class="bi ' + icon + ' me-2"></i>' + message +
-                '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Tutup"></button></div>';
-            container.appendChild(el);
-            const toast = new bootstrap.Toast(el, { delay: 6000 });
-            el.addEventListener('hidden.bs.toast', function () { el.remove(); });
-            toast.show();
-        }
-
-        // ===== Modal Tambah Shift Baru: reset form ke default saat dibuka =====
+        // Modal Tambah Shift Baru
         const modalShiftTambah  = document.getElementById('modalShiftTambah');
         const tambahShiftNama   = document.getElementById('shiftNama');
         const tambahShiftMulai  = document.getElementById('shiftMulai');
@@ -2083,7 +2267,7 @@
             modalShiftTambah.addEventListener('shown.bs.modal', resetTambahShiftForm);
         }
 
-        // ===== Modal Kelola Shift: tabel + form edit kondisional =====
+        // Modal Kelola Shift
         const modalShiftKelola     = document.getElementById('modalShiftKelola');
         const kelolaEditFormWrap   = document.getElementById('kelolaEditFormWrap');
         const kelolaDaftarWrap     = document.getElementById('kelolaDaftarWrap');
@@ -2098,11 +2282,6 @@
             if (kelolaDaftarWrap) kelolaDaftarWrap.classList.toggle('d-none', showEdit);
         }
 
-        // Peringatan overlap pada form EDIT: tingkatan yang sudah dipakai shift AKTIF
-        // lain (selain shift yang sedang diedit) TIDAK boleh ditambahkan lagi ->
-        // checkbox dikunci (disabled) + warning kuning. Tingkatan milik shift itu
-        // sendiri tetap bebas dicentang/dihapus (tanpa kunci) agar nilai yang
-        // sudah melekat tidak hilang diam-diam saat update.
         function applyGradeConflictState(editingShiftId, ownedGrades) {
             document.querySelectorAll('#modalShiftKelola .kelola-grade-level-check').forEach(function (cb) {
                 const holders = (activeGradeAllocation[cb.value] || []).filter(function (h) {
@@ -2127,9 +2306,6 @@
             });
         }
 
-        // Validasi minimal SATU tingkatan kelas dipilih (array grade_levels
-        // berisi minimal 1 elemen) — memakai JS, bukan atribut required per
-        // checkbox, agar shift satu-tingkatan (mis. hanya Kelas 12) tetap valid.
         function watchGradeLevelsForm(formId, checkboxSelector, errorId) {
             const form = document.getElementById(formId);
             const err  = document.getElementById(errorId);
@@ -2174,9 +2350,6 @@
                     cb.checked = selectedGrades.includes(cb.value);
                 });
 
-                // Penguncian overlap relatif terhadap shift yang sedang diedit:
-                // dirinya sendiri dikeluarkan dari daftar pemegang tingkatan dan
-                // miliknya sendiri tetap bebas diubah (bukan "centang semua").
                 applyGradeConflictState(id, selectedGrades);
                 const errKelola = document.getElementById('gradeLevelErrorKelola');
                 if (errKelola) errKelola.classList.add('d-none');
@@ -2198,7 +2371,7 @@
             });
         }
 
-        // ===== Konfirmasi hapus shift: isi modal dampak berantai & arahkan form DELETE =====
+        // Modal Konfirmasi Hapus Shift
         const modalHapusShift = document.getElementById('modalHapusShift');
         const formHapusShift  = document.getElementById('formHapusShift');
         const hapusShiftNama  = document.getElementById('hapusShiftNama');
@@ -2233,301 +2406,126 @@
                         : 'Tidak ada pengaturan jam pulang khusus shift ini.';
                 }
 
-                if (modalHapusShift) {
+                if (modalHapusShift && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
                     bootstrap.Modal.getOrCreateInstance(modalHapusShift).show();
                 }
             });
         });
 
-        // ===== Edit cepat shift dari sub-tab strip (ikon pensil pada pill aktif) =====
+        // Strip edit shift
         document.querySelectorAll('.btn-edit-shift-strip').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 const modalEl = document.getElementById('modalShiftKelola');
                 if (!modalEl) return;
 
-                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+                }
 
-                // Delegasi ke tombol Edit yang ada di dalam daftar modal (mengisi form PUT).
                 const listBtn = document.querySelector('.btn-edit-shift[data-shift-id="' + btn.dataset.shiftId + '"]');
                 if (listBtn) listBtn.click();
             });
         });
-
-        // ===== Bulk Action: Select All & Mass Action (Edit/Hapus Terpilih) =====
-        const selectAll       = document.getElementById('select-all');
-        const bulkBar         = document.getElementById('bulkActionBar');
-        const bulkCount       = document.getElementById('bulkCount');
-        const btnBulkEdit     = document.getElementById('btnBulkEdit');
-        const btnBulkHapus    = document.getElementById('btnBulkHapus');
-        const btnBulkBatal    = document.getElementById('btnBulkBatal');
-        const modalBulkEdit   = document.getElementById('modalBulkEdit');
-        const formBulkEdit    = document.getElementById('formBulkEdit');
-        const bulkGroupList   = document.getElementById('bulkGroupList');
-        let bulkSelectedIds   = [];
-        let bulkGroups        = []; // [{ jenis, slots: [{id, jenis, jamKe, label, durasi}] }]
-
-        function getAllBulkBoxes() {
-            return Array.prototype.slice.call(document.querySelectorAll('.jp-checkbox'));
-        }
-
-        function getSelectedBulkIds() {
-            return getAllBulkBoxes()
-                .filter(function (cb) { return cb.checked; })
-                .map(function (cb) { return cb.value; });
-        }
-
-        function updateBulkUI() {
-            const boxes  = getAllBulkBoxes();
-            const ids    = getSelectedBulkIds();
-            const count  = ids.length;
-
-            // Sinkronkan "select-all" (checked penuh / indeterminate sebagian)
-            if (selectAll) {
-                selectAll.checked = boxes.length > 0 && count === boxes.length;
-                selectAll.indeterminate = count > 0 && count < boxes.length;
-            }
-
-            // Tampilkan/sembunyikan bulk action bar
-            if (bulkBar) {
-                const show = count > 0;
-                bulkBar.classList.toggle('d-none', !show);
-                bulkBar.classList.toggle('d-flex', show);
-                if (bulkCount) bulkCount.textContent = count;
-            }
-        }
-
-        if (selectAll) {
-            selectAll.addEventListener('change', function () {
-                getAllBulkBoxes().forEach(function (cb) { cb.checked = selectAll.checked; });
-                updateBulkUI();
-            });
-        }
-
-        getAllBulkBoxes().forEach(function (cb) {
-            cb.addEventListener('change', updateBulkUI);
-        });
-
-        // Kelompokkan slot tercentang berdasarkan run urutan jenis (KBM/istirahat)
-        function buildBulkGroups() {
-            const groups = [];
-            getAllBulkBoxes()
-                .filter(function (cb) { return cb.checked; })
-                .forEach(function (cb) {
-                    const jenis = cb.getAttribute('data-jenis') || 'kbm';
-                    const slot = {
-                        id: cb.value,
-                        jenis: jenis,
-                        jamKe: parseInt(cb.getAttribute('data-jam-ke'), 10),
-                        label: cb.getAttribute('data-label')
-                            || (jenis === 'istirahat' ? 'Istirahat' : 'Jam ' + cb.getAttribute('data-jam-ke') + ' (KBM)'),
-                        durasi: parseInt(cb.getAttribute('data-durasi'), 10),
-                    };
-                    const last = groups[groups.length - 1];
-                    if (last && last.jenis === jenis) {
-                        last.slots.push(slot);
-                    } else {
-                        groups.push({ jenis: jenis, slots: [slot] });
-                    }
-                });
-            return groups;
-        }
-
-        function buildGroupLabel(group) {
-            if (!group || group.slots.length === 0) return '';
-            if (group.slots.length === 1) return group.slots[0].label;
-            if (group.jenis === 'kbm') {
-                const nums = group.slots
-                    .map(function (s) { return s.jamKe; })
-                    .filter(function (n) { return Number.isFinite(n); })
-                    .sort(function (a, b) { return a - b; });
-                if (nums.length > 0) {
-                    return 'Jam ' + nums[0] + ' - Jam ' + nums[nums.length - 1] + ' (KBM)';
-                }
-            }
-            return group.slots[0].label + ' - ' + group.slots[group.slots.length - 1].label;
-        }
-
-        // Render satu input durasi per kelompok slot di dalam modal
-        function renderBulkGroups(groups) {
-            if (!bulkGroupList) return;
-            bulkGroupList.innerHTML = '';
-
-            groups.forEach(function (group) {
-                const firstDurasi = group.slots[0].durasi;
-                const variatif = group.slots.some(function (s) { return s.durasi !== firstDurasi; });
-
-                const item = document.createElement('div');
-                item.className = 'bulk-group border rounded-3 p-3';
-                item.style.backgroundColor = '#fcfcfd';
-
-                const head = document.createElement('div');
-                head.className = 'd-flex flex-wrap justify-content-between align-items-center gap-2 mb-2';
-                const label = document.createElement('label');
-                label.className = 'fw-semibold text-dark mb-0';
-                label.style.fontSize = '0.82rem';
-                label.textContent = buildGroupLabel(group);
-                const badge = document.createElement('span');
-                badge.className = 'text-muted small';
-                badge.textContent = group.slots.length + ' slot';
-                head.appendChild(label);
-                head.appendChild(badge);
-
-                const input = document.createElement('input');
-                input.type = 'number';
-                input.min = '1';
-                input.max = '600';
-                input.step = '1';
-                input.autocomplete = 'off';
-                input.required = true;
-                input.className = 'form-control rounded-3 bulk-group-durasi';
-                if (variatif) {
-                    input.placeholder = 'Variatif (Isi durasi baru)';
-                } else if (Number.isFinite(firstDurasi)) {
-                    input.value = firstDurasi;
-                }
-
-                item.appendChild(head);
-                item.appendChild(input);
-                bulkGroupList.appendChild(item);
-            });
-        }
-
-        // Tombol "Edit Terpilih": kunci ID terpilih, kelompokkan & buka modal bulk edit
-        if (btnBulkEdit && modalBulkEdit) {
-            btnBulkEdit.addEventListener('click', function () {
-                bulkSelectedIds = getSelectedBulkIds();
-                if (bulkSelectedIds.length === 0) return;
-
-                const lblCount     = document.getElementById('bulkEditCount');
-                const lblCountBtn  = document.getElementById('bulkEditCountBtn');
-                if (lblCount)    lblCount.textContent    = bulkSelectedIds.length;
-                if (lblCountBtn) lblCountBtn.textContent = bulkSelectedIds.length;
-
-                // Kelompokkan slot tercentang (run urutan jenis) & render input per kelompok
-                bulkGroups = buildBulkGroups();
-                renderBulkGroups(bulkGroups);
-
-                const modal = new bootstrap.Modal(modalBulkEdit);
-                modal.show();
-            });
-        }
-
-        // Submit form bulk edit: bangun payload updates[] dari durasi per kelompok slot
-        if (formBulkEdit) {
-            formBulkEdit.addEventListener('submit', function (e) {
-                e.preventDefault();
-                if (!formBulkEdit.reportValidity()) return;
-
-                // Baca durasi dari tiap kelompok (urutan render = urutan kelompok)
-                const inputs = Array.prototype.slice.call(
-                    document.querySelectorAll('#bulkGroupList .bulk-group-durasi')
-                );
-                const durasis = inputs.map(function (inp) {
-                    return parseInt(inp.value, 10);
-                });
-
-                // Validasi: semua kelompok wajib terisi durasi valid (1-600)
-                if (durasis.length === 0) return;
-                if (durasis.some(function (d) { return !Number.isFinite(d) || d < 1 || d > 600; })) return;
-
-                // Hapus input tersembunyi lama (jika ada)
-                formBulkEdit.querySelectorAll('input[type="hidden"][name^="updates"]').forEach(function (el) {
-                    el.remove();
-                });
-
-                // Expose payload tambahan agar durable (untuk kompatibilitas XHR)
-                let idx = 0;
-                durasis.forEach(function (durasi, gi) {
-                    const group = bulkGroups[gi];
-                    if (!group) return;
-                    group.slots.forEach(function (slot) {
-                        const hid = document.createElement('input');
-                        hid.type = 'hidden';
-                        hid.name = 'updates[' + idx + '][id]';
-                        hid.value = slot.id;
-                        formBulkEdit.appendChild(hid);
-
-                        const hd = document.createElement('input');
-                        hd.type = 'hidden';
-                        hd.name = 'updates[' + idx + '][durasi]';
-                        hd.value = durasi;
-                        formBulkEdit.appendChild(hd);
-
-                        idx++;
-                    });
-                });
-
-                formBulkEdit.submit();
-            });
-        }
-
-        // Tombol "Hapus Terpilih": hapus massal lewat endpoint destroy per ID
-        if (btnBulkHapus) {
-            btnBulkHapus.addEventListener('click', function () {
-                const ids = getSelectedBulkIds();
-                if (ids.length === 0) return;
-
-                const pesan = 'Hapus ' + ids.length + ' slot jam pelajaran yang dipilih?\n\n'
-                    + 'Tindakan ini tidak dapat dibatalkan.';
-                if (!window.confirm(pesan)) return;
-
-                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-                const token    = csrfMeta ? csrfMeta.getAttribute('content') : '';
-
-                const tasks = ids.map(function (id) {
-                    return fetch("{{ url('admin/jam-pelajaran') }}/" + id, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': token,
-                            'Accept': 'application/json',
-                        },
-                    });
-                });
-
-                Promise.all(tasks)
-                    .then(function () {
-                        const url = new URL(window.location.href);
-                        url.searchParams.set('bulk_deleted', String(ids.length));
-                        window.location.href = url.toString();
-                    })
-                    .catch(function () {
-                        window.location.reload();
-                    });
-            });
-        }
-
-        // Tombol "Batal": kosongkan semua checkbox
-        if (btnBulkBatal) {
-            btnBulkBatal.addEventListener('click', function () {
-                getAllBulkBoxes().forEach(function (cb) { cb.checked = false; });
-                if (selectAll) selectAll.checked = false;
-                updateBulkUI();
-            });
-        }
-
-        // Inisialisasi state awal (bar disembunyikan, select-all kosong)
-        updateBulkUI();
-    });
-
-    function openEditModal(id, kategoriHari, jamMulai, jamSelesai, jenis, durasi, shiftId) {
-        const routeBase = "{{ url('admin/jam-pelajaran') }}";
-        document.getElementById('formEditJam').action = routeBase + '/' + id;
-
-        document.getElementById('editKategoriHari').value = kategoriHari;
-        document.getElementById('editJamMulai').value     = jamMulai;
-        document.getElementById('editJamSelesai').value   = jamSelesai;
-        document.getElementById('editJenis').value        = jenis;
-        const editShift = document.getElementById('editShiftId');
-        if (editShift) {
-            editShift.value = (shiftId !== undefined && shiftId !== null && shiftId !== 0) ? String(shiftId) : '';
-        }
-        if (document.getElementById('editDurasi')) {
-            document.getElementById('editDurasi').value = durasi !== undefined && durasi !== '' ? durasi : '40';
-        }
-
-        const modal = new bootstrap.Modal(document.getElementById('modalEditJam'));
-        modal.show();
     }
 
+    // Inisialisasi awal saat load
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMasterJamPelajaranPage);
+    } else {
+        initMasterJamPelajaranPage();
+    }
+
+    // SPA Unpoly Fragment Inserted Listener
+    if (!window.__masterJamLifecycleBound) {
+        window.__masterJamLifecycleBound = true;
+        document.addEventListener('up:fragment:inserted', function () {
+            initMasterJamPelajaranPage();
+        });
+    }
+</script>
+<script>
+    (function () {
+        if (window.__masterJamIstirahatDelegationBound) return;
+        window.__masterJamIstirahatDelegationBound = true;
+
+        document.addEventListener('click', function (event) {
+            const target = event.target instanceof Element ? event.target : null;
+            const addButton = target?.closest('#btnTambahIstirahat, .btn-tambah-istirahat');
+            if (addButton) {
+                const modal = addButton.closest('#modalGeneratePreset');
+                const rows = modal?.querySelector('#istirahatRows');
+                const presetForm = modal?.querySelector('#formGeneratePreset');
+                if (!rows || !presetForm) return;
+
+                event.preventDefault();
+                const nextIndex = Number(rows.dataset.nextIndex || 0);
+                rows.dataset.nextIndex = String(nextIndex + 1);
+                const requestedJumlah = parseInt(presetForm.querySelector('[name="jumlah_jp"]')?.value || '13', 10);
+                const jumlahJp = Number.isFinite(requestedJumlah) && requestedJumlah > 0 ? requestedJumlah : 13;
+
+                const row = document.createElement('div');
+                row.className = 'istirahat-row d-flex align-items-end gap-2 p-2 rounded-3 border bg-light-subtle';
+                row.dataset.index = String(nextIndex);
+
+                const positionField = document.createElement('div');
+                positionField.className = 'flex-grow-1';
+                const positionLabel = document.createElement('label');
+                positionLabel.className = 'form-label fw-semibold mb-1';
+                positionLabel.style.fontSize = '0.75rem';
+                positionLabel.textContent = 'Setelah Jam Ke-';
+                const positionSelect = document.createElement('select');
+                positionSelect.name = 'breaks[' + nextIndex + '][after_jam]';
+                positionSelect.className = 'form-select form-select-sm rounded-3';
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = '— Pilih Jam —';
+                positionSelect.appendChild(placeholder);
+                for (let jam = 1; jam <= jumlahJp; jam++) {
+                    const option = document.createElement('option');
+                    option.value = String(jam);
+                    option.textContent = 'Setelah Jam Ke-' + jam;
+                    positionSelect.appendChild(option);
+                }
+                positionField.append(positionLabel, positionSelect);
+
+                const durationField = document.createElement('div');
+                durationField.style.width = '130px';
+                const durationLabel = document.createElement('label');
+                durationLabel.className = 'form-label fw-semibold mb-1';
+                durationLabel.style.fontSize = '0.75rem';
+                durationLabel.textContent = 'Durasi (menit)';
+                const durationInput = document.createElement('input');
+                durationInput.type = 'number';
+                durationInput.name = 'breaks[' + nextIndex + '][duration]';
+                durationInput.className = 'form-control form-control-sm rounded-3';
+                durationInput.min = '1';
+                durationInput.max = '120';
+                durationInput.value = '15';
+                durationField.append(durationLabel, durationInput);
+
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'btn btn-sm btn-outline-danger rounded-3';
+                removeButton.title = 'Hapus Baris';
+                removeButton.innerHTML = '<i class="bi bi-trash3"></i>';
+                row.append(positionField, durationField, removeButton);
+                rows.appendChild(row);
+                return;
+            }
+
+            const removeButton = target?.closest('#istirahatRows .istirahat-row button');
+            if (removeButton) {
+                event.preventDefault();
+                removeButton.closest('.istirahat-row')?.remove();
+            }
+        });
+
+        document.addEventListener('shown.bs.modal', function (event) {
+            if (event.target?.id === 'modalGeneratePreset') {
+                const rows = event.target.querySelector('#istirahatRows');
+                if (rows) rows.dataset.nextIndex = '0';
+            }
+        });
+    })();
 </script>
 @endpush
