@@ -5,10 +5,10 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Laravel-11-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 11">
-  <img src="https://img.shields.io/badge/PHP-8.2-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.2">
+  <img src="https://img.shields.io/badge/Laravel-13-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 13">
+  <img src="https://img.shields.io/badge/PHP-8.5-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.5">
   <img src="https://img.shields.io/badge/TailwindCSS-3.0-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS">
-  <img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL">
+  <img src="https://img.shields.io/badge/MySQL-13.0.2-4479A1?style=for-the-badge&logo=mysql&logoColor=white" alt="MySQL">
 </p>
 
 ## 📌 Tentang WebJournal
@@ -29,7 +29,7 @@
 ## 🛠️ Tech Stack
 
 - **Framework:** [Laravel 13](https://laravel.com)
-- **Language:** PHP 8.3+
+- **Language:** PHP 8.5+
 - **Database:** MySQL / MariaDB
 - **Frontend:** Blade, Tailwind CSS, Alpine.js
 
